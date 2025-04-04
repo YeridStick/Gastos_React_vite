@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar'
 import "react-circular-progressbar/dist/styles.css"
 
-import { cantidad } from '../helpers'
+import { cantidad } from '../helpers/index'
 
 export default function CtlPresupuesto({ presupuesto, setPresupuesto, gastosState, deletePresupuesto }) {
   const [ disponible, setDisponible ] = useState(0)

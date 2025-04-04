@@ -1,5 +1,5 @@
 import React from 'react'
-import Gastos from './Gastos'
+import Gastos from './Gastos/Gastos'
 
 export default function ListadoGastos({ 
   modal, 

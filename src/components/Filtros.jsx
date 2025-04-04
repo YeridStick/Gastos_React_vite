@@ -1,32 +1,77 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 
 export default function Filtros({ filtros, setFiltros }) {
+  const [categorias, setCategorias] = useState([
+    { id: "", nombre: "Todos" }
+  ]);
+
+  // Cargar categorías desde localStorage
+  useEffect(() => {
+    const cargarCategorias = () => {
+      try {
+        const categoriasGuardadas = localStorage.getItem('categorias');
+        
+        if (categoriasGuardadas) {
+          const categoriasParseadas = JSON.parse(categoriasGuardadas);
+          
+          // Agregar la opción "Todos" al inicio
+          setCategorias([
+            { id: "", nombre: "Todos" },
+            ...categoriasParseadas
+          ]);
+        }
+      } catch (error) {
+        console.error("Error al cargar categorías:", error);
+      }
+    };
+    
+    cargarCategorias();
+    
+    // Escuchar cambios en localStorage
+    const handleStorageChange = (e) => {
+      if (e.key === 'categorias') {
+        cargarCategorias();
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
   return (
-    <div className="w-full mt-20 max-md:mt-4">
-      <form className="mx-auto w-4/5 max-lg:w-full px-4 bg-white flex max-md:flex-wrap items-center justify-around rounded-lg py-4 gap-2 shadow-md">
-        <label 
-          htmlFor="filtro" 
-          className="text-gray-500 font-bold text-3xl uppercase w-full text-center"
-        >
-          Filtrar Gastos
-        </label>
-        <select 
-          name="filtro" 
-          id="filtro"
-          className="w-full text-center rounded border outline-neutral-200 h-10 text-xl text-gray-800  font-semibold"
-          value={filtros}
-          onChange={(e)=>setFiltros(e.target.value)}
-        >
-          <option value="">Todos</option>
-          <option value="Ahorro">Ahorro</option>
-          <option value="Comida">Comida</option>
-          <option value="Casa">Casa</option>
-          <option value="Ocio">Ocio</option>
-          <option value="Salud">Salud</option>
-          <option value="Educacion">Educacion</option>
-          <option value="Otros">Otros</option>
-        </select>
-      </form>
+    <div className="bg-white rounded-lg shadow-md p-4">
+      <div className="md:flex md:items-center md:justify-between">
+        <div className="flex-1 min-w-0">
+          <h2 className="text-lg font-medium leading-6 text-gray-900">Filtrar Gastos</h2>
+          <p className="mt-1 text-sm text-gray-500">
+            Selecciona una categoría para filtrar tus gastos
+          </p>
+        </div>
+      </div>
+      
+      <div className="mt-4">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8">
+          {categorias.map((categoria) => (
+            <button
+              key={categoria.id}
+              onClick={() => setFiltros(categoria.id)}
+              className={`
+                px-3 py-2 rounded-md text-sm font-medium transition-colors
+                ${
+                  filtros === categoria.id
+                    ? 'bg-blue-100 text-blue-800 ring-2 ring-blue-600'
+                    : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                }
+              `}
+            >
+              {categoria.nombre}
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }
