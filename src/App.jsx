@@ -7,6 +7,8 @@ import Sidebar from './components/Sidebar.jsx'
 
 import Dashboard from './pages/Dashboard'
 import Modal from './components/Modal/General/Modal'
+import ModalIngresoExtra from './components/Modal/ModalIngresoExtra'
+import ModalEditarPresupuesto from './components/Modal/ModalEditarPresupuesto'
 import ListadoGastos from './pages/gastos/ListadoGastos'
 import Filtros from './components/Filtros'
 import Categorias from './pages/gastos/NuevaCategoria'
@@ -20,6 +22,8 @@ function App() {
   const [presupuesto, setPresupuesto] = useState(JSON.parse(localStorage.getItem("PresupuestoLS")) ?? "")
   const [isValid, setIsValid] = useState(JSON.parse(localStorage.getItem("ValidLS")) ?? false)
   const [modal, setModal] = useState(false)
+  const [modalIngreso, setModalIngreso] = useState(false)
+  const [modalEditar, setModalEditar] = useState(false)
   const [gastosState, setGastosState] = useState(JSON.parse(localStorage.getItem("ObjetosGastos")) ?? [])
   const [gastoEditar, setGastoEditar] = useState({})
   const [ingresosExtra, setIngresosExtra] = useState(JSON.parse(localStorage.getItem("IngresosExtra")) ?? [])
@@ -137,6 +141,61 @@ function App() {
     })
   }
 
+  // Función para editar un ingreso extra
+  const editarIngreso = (ingresoEditado) => {
+    const ingresosActualizados = ingresosExtra.map(ingreso => 
+      ingreso.id === ingresoEditado.id ? ingresoEditado : ingreso
+    )
+    
+    setIngresosExtra(ingresosActualizados)
+    
+    // Notificación
+    Swal.fire({
+      title: '¡Ingreso Actualizado!',
+      icon: 'success',
+      timer: 1500,
+      showConfirmButton: false,
+      position: 'bottom-end',
+      customClass: {
+        popup: 'rounded-lg',
+      }
+    })
+  }
+  
+  // Función para eliminar un ingreso extra
+  const eliminarIngreso = (ingresoId) => {
+    // Encontrar el ingreso para conocer su monto
+    const ingresoAEliminar = ingresosExtra.find(ingreso => ingreso.id === ingresoId)
+    
+    if (ingresoAEliminar) {
+      // Actualizar el presupuesto restando el monto del ingreso
+      const nuevoPresupuesto = Number(presupuesto) - Number(ingresoAEliminar.monto)
+      setPresupuesto(nuevoPresupuesto)
+      
+      // Filtrar el ingreso eliminado
+      const ingresosActualizados = ingresosExtra.filter(ingreso => ingreso.id !== ingresoId)
+      setIngresosExtra(ingresosActualizados)
+    }
+  }
+  
+  // Función para actualizar directamente el presupuesto total
+  const actualizarPresupuestoTotal = (nuevoPresupuesto, motivo) => {
+    // Registro para historial (opcional)
+    const registro = {
+      tipo: "cambio_presupuesto",
+      presupuestoAnterior: presupuesto,
+      presupuestoNuevo: nuevoPresupuesto,
+      motivo: motivo || "No especificado",
+      fecha: Date.now()
+    }
+    
+    // Aquí se podría guardar el registro en un historial si se desea
+    console.log("Registro de cambio de presupuesto:", registro)
+    
+    // Actualizar el presupuesto
+    setPresupuesto(nuevoPresupuesto)
+  }
+
   const editar = (gastos) => {
     setGastoEditar(gastos)
     setModal(true)
@@ -216,56 +275,64 @@ function App() {
           
           {/* Contenido principal */}
           <main className="flex-1 overflow-y-auto p-4 md:p-6">
-            {activeTab === 'dashboard' && (
-              <Dashboard 
-                presupuesto={presupuesto}
-                gastosState={gastosState}
-                actualizarPresupuesto={actualizarPresupuesto}
-                ingresosExtra={ingresosExtra}
-              />
-            )}
-            
-            {activeTab === 'gastos' && (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-semibold text-gray-800">Administra tus gastos</h2>
-                  <button 
-                    onClick={handleNuevoGasto}
-                    className="px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 flex items-center"
-                  >
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                    </svg>
-                    Nuevo Gasto
-                  </button>
-                </div>
-                
-                <Filtros
-                  filtros={filtros}
-                  setFiltros={setFiltros}
-                />
-                
-                <ListadoGastos 
+            <div className="mx-auto max-w-7xl"> {/* Contenedor con ancho máximo */}
+              {activeTab === 'dashboard' && (
+                <Dashboard 
+                  presupuesto={presupuesto}
+                  setPresupuesto={setPresupuesto}
                   gastosState={gastosState}
-                  editar={editar}
-                  eliminar={eliminar}
-                  gastosFiltrados={gastosFiltrados}
-                  filtros={filtros}
+                  actualizarPresupuesto={actualizarPresupuesto}
+                  ingresosExtra={ingresosExtra}
+                  editarIngreso={editarIngreso}
+                  eliminarIngreso={eliminarIngreso}
+                  setModalIngreso={setModalIngreso}
+                  setModalEditar={setModalEditar}
+                  actualizarPresupuestoTotal={actualizarPresupuestoTotal}
                 />
-              </div>
-            )}
-            
-            {activeTab === 'categorias' && (
-              <Categorias gastosState={gastosState} />
-            )}
+              )}
+              
+              {activeTab === 'gastos' && (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-2xl font-semibold text-gray-800">Administra tus gastos</h2>
+                    <button 
+                      onClick={handleNuevoGasto}
+                      className="px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 flex items-center"
+                    >
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                      </svg>
+                      Nuevo Gasto
+                    </button>
+                  </div>
+                  
+                  <Filtros
+                    filtros={filtros}
+                    setFiltros={setFiltros}
+                  />
+                  
+                  <ListadoGastos 
+                    gastosState={gastosState}
+                    editar={editar}
+                    eliminar={eliminar}
+                    gastosFiltrados={gastosFiltrados}
+                    filtros={filtros}
+                  />
+                </div>
+              )}
+              
+              {activeTab === 'categorias' && (
+                <Categorias gastosState={gastosState} />
+              )}
 
-            {activeTab === 'reportes' && (
-              <Reportes 
-                gastosState={gastosState} 
-                presupuesto={presupuesto}
-                ingresosExtra={ingresosExtra}
-              />
-            )}
+              {activeTab === 'reportes' && (
+                <Reportes 
+                  gastosState={gastosState} 
+                  presupuesto={presupuesto}
+                  ingresosExtra={ingresosExtra}
+                />
+              )}
+            </div>
           </main>
           
           {/* Botón flotante para móviles */}
@@ -329,12 +396,28 @@ function App() {
         </div>
       )}
       
+      {/* Modales */}
       {modal && (
         <Modal 
           gastoEditar={gastoEditar} 
           setGastoEditar={setGastoEditar} 
           setModal={setModal} 
           guardarGastos={guardarGastos}
+        />
+      )}
+      
+      {modalIngreso && (
+        <ModalIngresoExtra 
+          setModalIngreso={setModalIngreso} 
+          actualizarPresupuesto={actualizarPresupuesto} 
+        />
+      )}
+      
+      {modalEditar && (
+        <ModalEditarPresupuesto 
+          setModalEditar={setModalEditar} 
+          presupuestoActual={presupuesto}
+          actualizarPresupuestoTotal={actualizarPresupuestoTotal} 
         />
       )}
     </div>

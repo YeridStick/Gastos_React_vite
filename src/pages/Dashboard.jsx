@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { CircularProgressbar, buildStyles } from "react-circular-progressbar";
 import "react-circular-progressbar/dist/styles.css";
 import { cantidad } from "../helpers/index";
-import ModalIngresoExtra from "../components/Modal/ModalIngresoExtra";
+import Swal from "sweetalert2";
 
 // Importación de iconos para el dashboard
 import IconoAhorro from "../assets/img/icono_ahorro.svg";
@@ -44,17 +44,38 @@ const DashboardCard = ({ title, amount, color, icon, trend, percentage }) => {
 
 export default function Dashboard({
   presupuesto,
+  setPresupuesto,
   gastosState,
   actualizarPresupuesto,
   ingresosExtra = [],
+  editarIngreso,
+  eliminarIngreso,
+  setModalIngreso,
+  setModalEditar,
+  actualizarPresupuestoTotal
 }) {
   const [disponible, setDisponible] = useState(0);
   const [gastado, setGastado] = useState(0);
   const [porcentaje, setPorcentaje] = useState(0);
   const [gastosPorCategoria, setGastosPorCategoria] = useState({});
   const [categoriasInfo, setCategoriasInfo] = useState({});
-  const [modalIngreso, setModalIngreso] = useState(false);
+  const [mostrarMenu, setMostrarMenu] = useState(false);
   const [actividadReciente, setActividadReciente] = useState([]);
+  const menuRef = useRef(null);
+
+  // Cerrar el menú al hacer clic fuera de él
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setMostrarMenu(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   // Cargar categorías desde localStorage
   useEffect(() => {
@@ -193,9 +214,34 @@ export default function Dashboard({
     return `${meses[fecha.getMonth()]} ${fecha.getFullYear()}`;
   };
 
-  // Guardar un nuevo ingreso extra
+  // Abrir modal para agregar ingreso
   const handleAgregarIngreso = () => {
     setModalIngreso(true);
+  };
+
+  // Confirmar eliminación de ingreso
+  const handleEliminarIngreso = (ingreso) => {
+    Swal.fire({
+      title: '¿Eliminar ingreso?',
+      text: `¿Estás seguro que deseas eliminar este ingreso de ${cantidad(ingreso.monto)}?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        eliminarIngreso(ingreso.id);
+        
+        Swal.fire({
+          title: 'Ingreso eliminado',
+          icon: 'success',
+          timer: 1500,
+          showConfirmButton: false
+        });
+      }
+    });
   };
 
   // Formatear fecha
@@ -206,8 +252,43 @@ export default function Dashboard({
 
   return (
     <div className="space-y-6">
+      {/* Encabezado del Dashboard con menú de opciones */}
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-semibold text-gray-800">Dashboard</h2>
+        <div className="flex items-center space-x-2">
+          <h2 className="text-2xl font-semibold text-gray-800">Dashboard</h2>
+          
+          {/* Menú de opciones avanzadas */}
+          <div className="relative" ref={menuRef}>
+            <button 
+              onClick={() => setMostrarMenu(!mostrarMenu)}
+              className="p-1 text-gray-500 hover:text-gray-700 focus:outline-none"
+              aria-label="Opciones avanzadas"
+            >
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+              </svg>
+            </button>
+            
+            {/* Menú desplegable */}
+            {mostrarMenu && (
+              <div className="absolute left-0 mt-2 w-48 rounded-md shadow-lg bg-white z-10 ring-1 ring-black ring-opacity-5">
+                <div className="py-1" role="menu" aria-orientation="vertical">
+                  <button
+                    onClick={() => {
+                      setMostrarMenu(false);
+                      setModalEditar(true);
+                    }}
+                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    role="menuitem"
+                  >
+                    Modificar presupuesto total
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+        
         <div className="flex items-center space-x-2">
           <button
             onClick={handleAgregarIngreso}
@@ -381,7 +462,7 @@ export default function Dashboard({
         </div>
       </div>
 
-      {/* Historial de ingresos extra */}
+      {/* Historial de ingresos extra con botones de acción */}
       {ingresosExtra.length > 0 && (
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between mb-4">
@@ -390,51 +471,81 @@ export default function Dashboard({
             </h2>
           </div>
 
-          <div className="overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Descripción
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Fecha
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Monto
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {ingresosExtra.map((ingreso) => {
-                  // Formatear fecha
-                  const formatoFecha = formatearFecha(ingreso.fecha);
+          <div className="overflow-x-auto">
+            <div className="align-middle inline-block min-w-full">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Descripción
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Fecha
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Monto
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Acciones
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {ingresosExtra.map((ingreso) => {
+                    // Formatear fecha
+                    const formatoFecha = formatearFecha(ingreso.fecha);
 
-                  return (
-                    <tr key={ingreso.id}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {ingreso.descripcion || "Ingreso adicional"}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatoFecha}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right text-green-600">
-                        +{cantidad(ingreso.monto)}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                    return (
+                      <tr key={ingreso.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {ingreso.descripcion || "Ingreso adicional"}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {formatoFecha}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right text-green-600">
+                          +{cantidad(ingreso.monto)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                          <div className="flex justify-end space-x-2">
+                            <button
+                              onClick={() => handleEliminarIngreso(ingreso)}
+                              className="text-red-600 hover:text-red-900 transition-colors focus:outline-none"
+                            >
+                              <svg 
+                                className="h-5 w-5" 
+                                fill="none" 
+                                stroke="currentColor" 
+                                viewBox="0 0 24 24"
+                              >
+                                <path 
+                                  strokeLinecap="round" 
+                                  strokeLinejoin="round" 
+                                  strokeWidth="2" 
+                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                />
+                              </svg>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
@@ -522,14 +633,6 @@ export default function Dashboard({
           </p>
         )}
       </div>
-
-      {/* Modal para añadir ingresos extras */}
-      {modalIngreso && (
-        <ModalIngresoExtra
-          setModalIngreso={setModalIngreso}
-          actualizarPresupuesto={actualizarPresupuesto}
-        />
-      )}
     </div>
   );
 }
