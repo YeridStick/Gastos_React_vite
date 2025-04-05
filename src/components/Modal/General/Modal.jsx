@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react'
-import CerrarBtn from '../assets/img/cerrar.svg'
+import { useState, useEffect } from 'react'
 
 // Componente de error
 const Error = ({ children }) => {
@@ -111,22 +110,18 @@ export default function Modal({ setModal, guardarGastos, gastoEditar, setGastoEd
       return
     }
     
-    // Crear objeto de gasto
     const objetoGasto = {
       nombreG,
       gasto,
       categoria
     }
     
-    // Si hay fecha del formulario, usarla (para edición)
     if (fecha) {
       objetoGasto.fecha = new Date(fecha).getTime()
     }
     
-    // Guardar o actualizar gasto
     guardarGastos(objetoGasto)
     
-    // Limpiar formulario
     setNombreG("")
     setGasto("")
     setCategoria("")
@@ -138,7 +133,6 @@ export default function Modal({ setModal, guardarGastos, gastoEditar, setGastoEd
     setModal(false)
   }
 
-  // Prevenir que el fondo se pueda desplazar cuando el modal está abierto
   useEffect(() => {
     document.body.style.overflow = 'hidden'
     return () => {

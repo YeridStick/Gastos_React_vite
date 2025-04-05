@@ -3,13 +3,14 @@ import Swal from 'sweetalert2'
 
 // Componentes
 import Header from './components/Header'
-import Sidebar from './components/Sidebar'
-import Dashboard from './components/Dashboard'
-import Modal from './components/Modal'
-import ListadoGastos from './components/ListadoGastos'
+import Sidebar from './components/Sidebar.jsx'
+
+import Dashboard from './pages/Dashboard'
+import Modal from './components/Modal/General/Modal'
+import ListadoGastos from './pages/gastos/ListadoGastos'
 import Filtros from './components/Filtros'
-import Categorias from './components/gastos/Nuevos'
-import Reportes from './components/Reportes'
+import Categorias from './pages/gastos/NuevaCategoria'
+import Reportes from './pages/Reportes'
 
 // Funciones
 import { generarID } from './helpers/index'
@@ -21,6 +22,7 @@ function App() {
   const [modal, setModal] = useState(false)
   const [gastosState, setGastosState] = useState(JSON.parse(localStorage.getItem("ObjetosGastos")) ?? [])
   const [gastoEditar, setGastoEditar] = useState({})
+  const [ingresosExtra, setIngresosExtra] = useState(JSON.parse(localStorage.getItem("IngresosExtra")) ?? [])
   
   // Estados para navegación y filtros
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -54,6 +56,7 @@ function App() {
         setModal(false),
         setGastosState([]),
         setGastoEditar({}),
+        setIngresosExtra([]),
         localStorage.clear()
       )
     })
@@ -104,6 +107,36 @@ function App() {
     setGastoEditar({})
   }
 
+  // Nueva función para agregar ingresos extras
+  const actualizarPresupuesto = (monto, descripcion) => {
+    // Actualizar el presupuesto
+    const nuevoPresupuesto = Number(presupuesto) + Number(monto)
+    setPresupuesto(nuevoPresupuesto)
+    
+    // Registrar el ingreso extra
+    const nuevoIngreso = {
+      id: generarID(),
+      monto,
+      descripcion,
+      fecha: Date.now()
+    }
+    
+    setIngresosExtra([nuevoIngreso, ...ingresosExtra])
+    
+    // Notificación
+    Swal.fire({
+      title: '¡Ingreso Registrado!',
+      text: `Se han añadido ${new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'COP' }).format(monto)} a tu presupuesto`,
+      icon: 'success',
+      timer: 2000,
+      showConfirmButton: false,
+      position: 'bottom-end',
+      customClass: {
+        popup: 'rounded-lg',
+      }
+    })
+  }
+
   const editar = (gastos) => {
     setGastoEditar(gastos)
     setModal(true)
@@ -147,7 +180,8 @@ function App() {
     localStorage.setItem("ObjetosGastos", JSON.stringify(gastosState));
     localStorage.setItem("PresupuestoLS", JSON.stringify(presupuesto));
     localStorage.setItem("ValidLS", JSON.stringify(isValid));
-  }, [gastosState, presupuesto, isValid])
+    localStorage.setItem("IngresosExtra", JSON.stringify(ingresosExtra));
+  }, [gastosState, presupuesto, isValid, ingresosExtra])
 
   // Efecto para filtrar gastos
   useEffect(() => {
@@ -186,6 +220,8 @@ function App() {
               <Dashboard 
                 presupuesto={presupuesto}
                 gastosState={gastosState}
+                actualizarPresupuesto={actualizarPresupuesto}
+                ingresosExtra={ingresosExtra}
               />
             )}
             
@@ -224,7 +260,11 @@ function App() {
             )}
 
             {activeTab === 'reportes' && (
-              <Reportes gastosState={gastosState} presupuesto={presupuesto} />
+              <Reportes 
+                gastosState={gastosState} 
+                presupuesto={presupuesto}
+                ingresosExtra={ingresosExtra}
+              />
             )}
           </main>
           
@@ -244,7 +284,7 @@ function App() {
         // Componente de inicio para establecer presupuesto
         <div className="flex flex-col flex-1 items-center justify-center p-6 bg-gray-50">
           <div className="w-full max-w-md bg-white rounded-lg shadow-md p-8">
-            <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">Bienvenido a FinanceTracker</h2>
+            <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">Bienvenidos</h2>
             <p className="text-gray-600 mb-6 text-center">
               Para comenzar, define tu presupuesto inicial
             </p>

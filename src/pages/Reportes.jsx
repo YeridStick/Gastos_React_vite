@@ -1,47 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { cantidad } from '../helpers/index';
-
-// Importación de iconos para el dashboard
-import IconoAhorro from '../assets/img/icono_ahorro.svg';
-import IconoCasa from '../assets/img/icono_casa.svg';
-import IconoComida from '../assets/img/icono_comida.svg';
-import IconoGasto from '../assets/img/icono_gastos.svg';
-import IconoOcio from '../assets/img/icono_ocio.svg';
-import IconoSalud from '../assets/img/icono_salud.svg';
-import IconoEducacion from '../assets/img/icono_suscripciones.svg';
-
-// Función para guardar en localStorage
-const guardarEnLocalStorage = (key, value) => {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch (error) {
-    console.error("Error al guardar en localStorage:", error);
-  }
-};
-
-// Función para obtener de localStorage
-const obtenerDeLocalStorage = (key, defaultValue) => {
-  try {
-    const storedValue = localStorage.getItem(key);
-    return storedValue ? JSON.parse(storedValue) : defaultValue;
-  } catch (error) {
-    console.error("Error al obtener de localStorage:", error);
-    return defaultValue;
-  }
-};
-
+import { useState, useEffect } from 'react';
+import { cantidad } from '../helpers/index.js';
 // Componente para generar reportes
 export default function Reportes({ gastosState, presupuesto }) {
-  // Estado para almacenar datos de reportes usando localStorage
-  const [periodoSeleccionado, setPeriodoSeleccionado] = useState(
-    obtenerDeLocalStorage("reportePeriodo", 'mensual')
-  );
-  const [mesSeleccionado, setMesSeleccionado] = useState(
-    obtenerDeLocalStorage("reporteMes", new Date().getMonth())
-  );
-  const [añoSeleccionado, setAñoSeleccionado] = useState(
-    obtenerDeLocalStorage("reporteAño", new Date().getFullYear())
-  );
+  // Estado para almacenar datos de reportes
+  const [periodoSeleccionado, setPeriodoSeleccionado] = useState('mensual');
+  const [mesSeleccionado, setMesSeleccionado] = useState(new Date().getMonth());
+  const [añoSeleccionado, setAñoSeleccionado] = useState(new Date().getFullYear());
   const [datosReporte, setDatosReporte] = useState({
     gastoTotal: 0,
     gastoPromedio: 0,
@@ -52,9 +16,6 @@ export default function Reportes({ gastosState, presupuesto }) {
     cumplimientoPresupuesto: 0,
     listadoGastos: []
   });
-  
-  // Estado para información de categorías
-  const [categoriasInfo, setCategoriasInfo] = useState({});
 
   // Lista de meses para el selector
   const meses = [
@@ -68,51 +29,6 @@ export default function Reportes({ gastosState, presupuesto }) {
   for (let i = 0; i < 5; i++) {
     años.push(añoActual - i);
   }
-
-  // Función para obtener el icono basado en el ID de la categoría
-  const getIconoPorCategoria = (categoriaId) => {
-    switch (categoriaId) {
-      case 'Ahorro': return IconoAhorro;
-      case 'Comida': return IconoComida;
-      case 'Casa': return IconoCasa;
-      case 'Ocio': return IconoOcio;
-      case 'Salud': return IconoSalud;
-      case 'Educacion': return IconoEducacion;
-      default: return IconoGasto;
-    }
-  };
-
-  // Cargar categorías desde localStorage
-  useEffect(() => {
-    try {
-      const categoriasGuardadas = localStorage.getItem('categorias');
-      
-      if (categoriasGuardadas) {
-        const categorias = JSON.parse(categoriasGuardadas);
-        
-        // Crear un objeto con información de cada categoría
-        const infoObj = {};
-        categorias.forEach(cat => {
-          infoObj[cat.id] = {
-            nombre: cat.nombre,
-            color: cat.color || 'bg-gray-100 text-gray-800',
-            icono: getIconoPorCategoria(cat.id)
-          };
-        });
-        
-        setCategoriasInfo(infoObj);
-      }
-    } catch (error) {
-      console.error("Error al cargar categorías:", error);
-    }
-  }, []);
-
-  // Guardar configuración del reporte en localStorage
-  useEffect(() => {
-    guardarEnLocalStorage("reportePeriodo", periodoSeleccionado);
-    guardarEnLocalStorage("reporteMes", mesSeleccionado);
-    guardarEnLocalStorage("reporteAño", añoSeleccionado);
-  }, [periodoSeleccionado, mesSeleccionado, añoSeleccionado]);
 
   // Generar reporte cuando cambia el periodo o los gastos
   useEffect(() => {
@@ -494,28 +410,10 @@ export default function Reportes({ gastosState, presupuesto }) {
                   .map(([categoria, valor]) => {
                     const porcentaje = Math.round((valor / datosReporte.gastoTotal) * 100);
                     
-                    // Obtener información de la categoría
-                    const categoriaInfo = categoriasInfo[categoria] || {
-                      nombre: categoria,
-                      color: 'bg-blue-100 text-blue-800'
-                    };
-                    
-                    // Extraer solo el color de fondo para la barra de progreso
-                    const barColor = categoriaInfo.color?.split(' ')[0] || 'bg-blue-600';
-                    
                     return (
-                      <tr key={categoria} className="hover:bg-gray-50 w-100">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            {categoriaInfo.icono && (
-                              <div className={`w-8 h-8 rounded-full ${categoriaInfo.color?.split(' ')[0] || 'bg-blue-100'} flex items-center justify-center mr-3`}>
-                                <img className="h-5 w-5" src={categoriaInfo.icono} alt={categoriaInfo.nombre || categoria} />
-                              </div>
-                            )}
-                            <span className="text-sm font-medium text-gray-900">
-                              {categoriaInfo.nombre || categoria}
-                            </span>
-                          </div>
+                      <tr key={categoria} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {categoria}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 text-right">
                           {cantidad(valor)}
@@ -527,7 +425,7 @@ export default function Reportes({ gastosState, presupuesto }) {
                             </span>
                             <div className="w-16 bg-gray-200 rounded-full h-2">
                               <div 
-                                className={`${barColor} h-2 rounded-full`}
+                                className="bg-blue-600 h-2 rounded-full" 
                                 style={{ width: `${porcentaje}%` }}
                               ></div>
                             </div>
@@ -592,20 +490,14 @@ export default function Reportes({ gastosState, presupuesto }) {
                   const fecha = new Date(gasto.fecha);
                   const formatoFecha = `${fecha.getDate()}/${fecha.getMonth() + 1}/${fecha.getFullYear()}`;
                   
-                  // Obtener color de la categoría
-                  const categoriaInfo = categoriasInfo[gasto.categoria] || {
-                    nombre: gasto.categoria,
-                    color: 'bg-blue-100 text-blue-800'
-                  };
-                  
                   return (
                     <tr key={gasto.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {gasto.nombreG}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${categoriaInfo.color}`}>
-                          {categoriaInfo.nombre || gasto.categoria}
+                        <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                          {gasto.categoria}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

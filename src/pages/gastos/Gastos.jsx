@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { formatearFecha, cantidad } from '../../helpers/index';
 
 // Iconos para categorías
@@ -21,7 +21,7 @@ const iconosPredefinidos = {
   Otros: IconoGasto,
 };
 
-export default function Gastos({ gastos, editar, eliminar }) {
+export default function Gastos({ gastos, setGastoEditar, editar, eliminar }) {
   // Para obtener la fecha formateada
   const fechaFormateada = formatearFecha(gastos.fecha);
   
@@ -60,44 +60,58 @@ export default function Gastos({ gastos, editar, eliminar }) {
   }, [gastos.categoria]);
 
   return (
-    <div className="hover:bg-gray-50 w-100 display flex items-center justify-between bg-white shadow-md rounded-lg p-4 mb-4 transition-all duration-300 ease-in-out">
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="flex items-center">
-          <div className="flex-shrink-0 h-10 w-10">
-            <img className="h-10 w-10" src={categoriaInfo.icono} alt={`Icono ${gastos.categoria}`} />
+    <div className="bg-white rounded-lg shadow mb-4 overflow-hidden">
+      <div className="p-4">
+        {/* Contenido principal usando flexbox que se adapta a diferentes tamaños */}
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          {/* Información del gasto - lado izquierdo */}
+          <div className="flex items-center flex-grow">
+            <div className="flex-shrink-0 h-10 w-10">
+              <img 
+                className="h-10 w-10" 
+                src={categoriaInfo.icono} 
+                alt={`Icono ${gastos.categoria}`} 
+              />
+            </div>
+            <div className="ml-3 min-w-0 flex-1">
+              <h3 className="text-sm md:text-base font-medium text-gray-900 truncate">
+                {gastos.nombreG}
+              </h3>
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <span className={`px-2 py-1 text-xs leading-5 font-semibold rounded-full ${categoriaInfo.color}`}>
+                  {gastos.categoria}
+                </span>
+                <span className="text-xs text-gray-500">
+                  {fechaFormateada}
+                </span>
+              </div>
+            </div>
           </div>
-          <div className="ml-4">
-            <div className="text-sm font-medium text-gray-900">{gastos.nombreG}</div>
+          
+          {/* Monto - lado derecho */}
+          <div className="text-right flex-shrink-0">
+            <p className="text-lg font-medium text-gray-900">
+              {cantidad(gastos.gasto)}
+            </p>
           </div>
         </div>
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap">
-        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${categoriaInfo.color}`}>
-          {gastos.categoria}
-        </span>
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-        {fechaFormateada}
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 text-right">
-        {cantidad(gastos.gasto)}
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-        <div className="flex justify-end space-x-2">
+        
+        {/* Botones de acción */}
+        <div className="mt-4 pt-3 border-t border-gray-100 flex justify-end gap-2 flex-wrap">
           <button 
             onClick={() => editar(gastos)}
-            className="text-blue-600 hover:text-blue-900 transition-colors focus:outline-none focus:underline"
+            className="px-4 py-1.5 bg-blue-50 rounded-md text-blue-600 text-sm font-medium hover:bg-blue-100 transition-colors"
           >
             Editar
           </button>
           <button 
             onClick={() => eliminar(gastos)}
-            className="text-red-600 hover:text-red-900 transition-colors focus:outline-none focus:underline"
+            className="px-4 py-1.5 bg-red-50 rounded-md text-red-600 text-sm font-medium hover:bg-red-100 transition-colors"
           >
             Eliminar
           </button>
         </div>
-      </td>
+      </div>
     </div>
   );
 }
