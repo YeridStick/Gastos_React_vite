@@ -1,19 +1,25 @@
 import { useState, useEffect } from 'react';
 import { cantidad } from '../helpers/index.js';
+
 // Componente para generar reportes
 export default function Reportes({ gastosState, presupuesto }) {
   // Estado para almacenar datos de reportes
   const [periodoSeleccionado, setPeriodoSeleccionado] = useState('mensual');
   const [mesSeleccionado, setMesSeleccionado] = useState(new Date().getMonth());
   const [añoSeleccionado, setAñoSeleccionado] = useState(new Date().getFullYear());
+  const [ingresosExtra, setIngresosExtra] = useState([]);
+  const [metasAhorro, setMetasAhorro] = useState([]);
   const [datosReporte, setDatosReporte] = useState({
     gastoTotal: 0,
+    ingresoExtra: 0,
     gastoPromedio: 0,
     gastoMasAlto: { valor: 0, nombre: '', fecha: null },
     gastoMasBajo: { valor: Infinity, nombre: '', fecha: null },
     gastosPorCategoria: {},
     tendencia: 'igual', // 'subida', 'bajada', 'igual'
     cumplimientoPresupuesto: 0,
+    progressoAhorro: 0,
+    balance: 0,
     listadoGastos: []
   });
 
@@ -29,19 +35,34 @@ export default function Reportes({ gastosState, presupuesto }) {
   for (let i = 0; i < 5; i++) {
     años.push(añoActual - i);
   }
+  
+  // Cargar ingresos extras desde localStorage
+  useEffect(() => {
+    const obtenerIngresosExtra = () => {
+      const ingresosExtraLS = JSON.parse(localStorage.getItem('IngresosExtra')) || [];
+      setIngresosExtra(ingresosExtraLS);
+    };
+    
+    const obtenerMetasAhorro = () => {
+      const metasAhorroLS = JSON.parse(localStorage.getItem('MetasAhorro')) || [];
+      setMetasAhorro(metasAhorroLS);
+    };
+    
+    obtenerIngresosExtra();
+    obtenerMetasAhorro();
+  }, []);
 
   // Generar reporte cuando cambia el periodo o los gastos
   useEffect(() => {
-    if (gastosState.length > 0) {
-      generarReporte();
-    }
+    generarReporte();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gastosState, periodoSeleccionado, mesSeleccionado, añoSeleccionado]);
+  }, [gastosState, ingresosExtra, metasAhorro, periodoSeleccionado, mesSeleccionado, añoSeleccionado]);
 
   // Función para generar el reporte
   const generarReporte = () => {
     // Filtrar gastos según el periodo seleccionado
     let gastosFiltrados = [];
+    let ingresosExtraFiltrados = [];
     const fechaActual = new Date();
     
     if (periodoSeleccionado === 'mensual') {
@@ -51,11 +72,22 @@ export default function Reportes({ gastosState, presupuesto }) {
         return fechaGasto.getMonth() === mesSeleccionado && 
                fechaGasto.getFullYear() === añoSeleccionado;
       });
+      
+      ingresosExtraFiltrados = ingresosExtra.filter(ingreso => {
+        const fechaIngreso = new Date(ingreso.fecha);
+        return fechaIngreso.getMonth() === mesSeleccionado && 
+               fechaIngreso.getFullYear() === añoSeleccionado;
+      });
     } else if (periodoSeleccionado === 'anual') {
       // Filtrar solo por año seleccionado
       gastosFiltrados = gastosState.filter(gasto => {
         const fechaGasto = new Date(gasto.fecha);
         return fechaGasto.getFullYear() === añoSeleccionado;
+      });
+      
+      ingresosExtraFiltrados = ingresosExtra.filter(ingreso => {
+        const fechaIngreso = new Date(ingreso.fecha);
+        return fechaIngreso.getFullYear() === añoSeleccionado;
       });
     } else if (periodoSeleccionado === 'trimestral') {
       // Determinar el trimestre actual (0-3)
@@ -69,18 +101,28 @@ export default function Reportes({ gastosState, presupuesto }) {
         return fechaGasto.getFullYear() === añoSeleccionado && 
                mesGasto >= mesInicio && mesGasto <= mesFin;
       });
+      
+      ingresosExtraFiltrados = ingresosExtra.filter(ingreso => {
+        const fechaIngreso = new Date(ingreso.fecha);
+        const mesIngreso = fechaIngreso.getMonth();
+        return fechaIngreso.getFullYear() === añoSeleccionado && 
+               mesIngreso >= mesInicio && mesIngreso <= mesFin;
+      });
     }
 
     // Si no hay gastos en el periodo, mostrar mensaje vacío
-    if (gastosFiltrados.length === 0) {
+    if (gastosFiltrados.length === 0 && ingresosExtraFiltrados.length === 0) {
       setDatosReporte({
         gastoTotal: 0,
+        ingresoExtra: 0,
         gastoPromedio: 0,
         gastoMasAlto: { valor: 0, nombre: '', fecha: null },
         gastoMasBajo: { valor: 0, nombre: '', fecha: null },
         gastosPorCategoria: {},
         tendencia: 'igual',
         cumplimientoPresupuesto: 0,
+        progressoAhorro: 0,
+        balance: 0,
         listadoGastos: []
       });
       return;
@@ -89,8 +131,11 @@ export default function Reportes({ gastosState, presupuesto }) {
     // Calcular gasto total
     const gastoTotal = gastosFiltrados.reduce((total, gasto) => total + gasto.gasto, 0);
     
+    // Calcular ingresos extras
+    const ingresoExtra = ingresosExtraFiltrados.reduce((total, ingreso) => total + ingreso.monto, 0);
+    
     // Calcular gasto promedio
-    const gastoPromedio = gastoTotal / gastosFiltrados.length;
+    const gastoPromedio = gastosFiltrados.length > 0 ? gastoTotal / gastosFiltrados.length : 0;
     
     // Encontrar gasto más alto y más bajo
     let gastoMasAlto = { valor: 0, nombre: '', fecha: null };
@@ -117,6 +162,11 @@ export default function Reportes({ gastosState, presupuesto }) {
     // Si solo hay un gasto, el más bajo es igual al más alto
     if (gastosFiltrados.length === 1) {
       gastoMasBajo = { ...gastoMasAlto };
+    }
+    
+    // Si no hay gastos, ajustar valor mínimo a 0
+    if (gastosFiltrados.length === 0) {
+      gastoMasBajo = { valor: 0, nombre: '', fecha: null };
     }
     
     // Calcular gastos por categoría
@@ -147,32 +197,54 @@ export default function Reportes({ gastosState, presupuesto }) {
       }
     }
     
-    // Calcular porcentaje de cumplimiento del presupuesto
-    const presupuestoMensual = presupuesto / 12;
+    // Calcular presupuesto aplicable considerando ingresos extras
+    let presupuestoMensual = presupuesto / 12;
     let presupuestoAplicable;
     
     if (periodoSeleccionado === 'mensual') {
-      presupuestoAplicable = presupuestoMensual;
+      presupuestoAplicable = presupuestoMensual + ingresoExtra;
     } else if (periodoSeleccionado === 'trimestral') {
-      presupuestoAplicable = presupuestoMensual * 3;
+      presupuestoAplicable = (presupuestoMensual * 3) + ingresoExtra;
     } else {
-      presupuestoAplicable = presupuesto;
+      presupuestoAplicable = presupuesto + ingresoExtra;
     }
     
+    // Calcular porcentaje de cumplimiento del presupuesto
     const cumplimientoPresupuesto = presupuestoAplicable > 0 
       ? Math.min(100, Math.round((gastoTotal * 100) / presupuestoAplicable))
       : 0;
     
+    // Calcular balance (ingresos - gastos)
+    const balance = presupuestoAplicable - gastoTotal;
+    
+    // Calcular progreso de ahorro
+    const metasFiltradas = metasAhorro.filter(meta => {
+      if (!meta.completada) {
+        return true;
+      }
+      return false;
+    });
+    
+    let progressoAhorro = 0;
+    if (metasFiltradas.length > 0) {
+      const montoTotalMetas = metasFiltradas.reduce((total, meta) => total + meta.monto, 0);
+      const ahorroAcumulado = metasFiltradas.reduce((total, meta) => total + (meta.ahorroAcumulado || 0), 0);
+      progressoAhorro = montoTotalMetas > 0 ? Math.min(100, Math.round((ahorroAcumulado * 100) / montoTotalMetas)) : 0;
+    }
+    
     // Actualizar el estado con los datos del reporte
     setDatosReporte({
       gastoTotal,
+      ingresoExtra,
       gastoPromedio,
       gastoMasAlto,
       gastoMasBajo,
       gastosPorCategoria,
       tendencia,
       cumplimientoPresupuesto,
-      listadoGastos: gastosFiltrados.sort((a, b) => b.fecha - a.fecha) // Ordenar por fecha descendente
+      progressoAhorro,
+      balance,
+      listadoGastos: gastosFiltrados.sort((a, b) => new Date(b.fecha) - new Date(a.fecha)) // Ordenar por fecha descendente
     });
   };
 
@@ -195,7 +267,7 @@ export default function Reportes({ gastosState, presupuesto }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h2 className="text-2xl font-semibold text-gray-800">Reportes</h2>
         <div className="flex space-x-2">
           <button 
@@ -220,7 +292,7 @@ export default function Reportes({ gastosState, presupuesto }) {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Tipo de Reporte
             </label>
-            <div className="flex space-x-2">
+            <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setPeriodoSeleccionado('mensual')}
                 className={`px-3 py-1 rounded text-sm font-medium ${
@@ -295,7 +367,7 @@ export default function Reportes({ gastosState, presupuesto }) {
       {/* Título del reporte */}
       <div className="bg-white rounded-lg shadow-md p-4">
         <h3 className="text-xl font-medium text-gray-900">
-          Reporte de Gastos: {obtenerTituloPeriodo()}
+          Reporte Financiero: {obtenerTituloPeriodo()}
         </h3>
       </div>
 
@@ -324,6 +396,61 @@ export default function Reportes({ gastosState, presupuesto }) {
           </div>
         </div>
 
+        {/* Ingresos Extra */}
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          <div className="p-5">
+            <h3 className="text-lg font-medium text-gray-900">Ingresos Extra</h3>
+            <div className="mt-4">
+              <span className="text-3xl font-bold text-green-600">
+                {cantidad(datosReporte.ingresoExtra)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Balance */}
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          <div className="p-5">
+            <h3 className="text-lg font-medium text-gray-900">Balance</h3>
+            <div className="mt-4">
+              <span className={`text-3xl font-bold ${datosReporte.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {cantidad(datosReporte.balance)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Cumplimiento presupuesto */}
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          <div className="p-5">
+            <h3 className="text-lg font-medium text-gray-900">Cumplimiento Presupuesto</h3>
+            <div className="mt-4">
+              <div className="flex items-center">
+                <span className="text-3xl font-bold text-gray-900">
+                  {datosReporte.cumplimientoPresupuesto}%
+                </span>
+              </div>
+              <div className="mt-2">
+                <div className="overflow-hidden h-2 text-xs flex rounded bg-gray-200">
+                  <div 
+                    style={{ width: `${datosReporte.cumplimientoPresupuesto}%` }}
+                    className={`shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center ${
+                      datosReporte.cumplimientoPresupuesto > 80 
+                        ? 'bg-red-500' 
+                        : datosReporte.cumplimientoPresupuesto > 60 
+                        ? 'bg-yellow-500' 
+                        : 'bg-green-500'
+                    }`}
+                  ></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Segunda fila de estadísticas */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* Promedio de gastos */}
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <div className="p-5">
@@ -353,27 +480,21 @@ export default function Reportes({ gastosState, presupuesto }) {
           </div>
         </div>
 
-        {/* Cumplimiento presupuesto */}
+        {/* Progreso de Ahorro */}
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <div className="p-5">
-            <h3 className="text-lg font-medium text-gray-900">Cumplimiento Presupuesto</h3>
+            <h3 className="text-lg font-medium text-gray-900">Progreso de Ahorro</h3>
             <div className="mt-4">
               <div className="flex items-center">
                 <span className="text-3xl font-bold text-gray-900">
-                  {datosReporte.cumplimientoPresupuesto}%
+                  {datosReporte.progressoAhorro}%
                 </span>
               </div>
               <div className="mt-2">
                 <div className="overflow-hidden h-2 text-xs flex rounded bg-gray-200">
                   <div 
-                    style={{ width: `${datosReporte.cumplimientoPresupuesto}%` }}
-                    className={`shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center ${
-                      datosReporte.cumplimientoPresupuesto > 80 
-                        ? 'bg-red-500' 
-                        : datosReporte.cumplimientoPresupuesto > 60 
-                        ? 'bg-yellow-500' 
-                        : 'bg-green-500'
-                    }`}
+                    style={{ width: `${datosReporte.progressoAhorro}%` }}
+                    className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500"
                   ></div>
                 </div>
               </div>
@@ -456,59 +577,65 @@ export default function Reportes({ gastosState, presupuesto }) {
           </div>
         )}
       </div>
-
-      {/* Listado de gastos en el periodo */}
+      
+      {/* Metas de Ahorro */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200">
           <h3 className="text-lg font-medium text-gray-900">
-            Listado de Gastos del Periodo
+            Metas de Ahorro Activas
           </h3>
         </div>
         
-        {datosReporte.listadoGastos.length > 0 ? (
+        {metasAhorro.filter(meta => !meta.completada).length > 0 ? (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Concepto
+                    Meta
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Categoría
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Fecha
+                    Fecha Objetivo
                   </th>
                   <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Monto
+                    Monto Objetivo
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Ahorrado
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Progreso
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {datosReporte.listadoGastos.map(gasto => {
-                  // Formatear fecha
-                  const fecha = new Date(gasto.fecha);
-                  const formatoFecha = `${fecha.getDate()}/${fecha.getMonth() + 1}/${fecha.getFullYear()}`;
-                  
-                  return (
-                    <tr key={gasto.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {gasto.nombreG}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                          {gasto.categoria}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatoFecha}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 text-right">
-                        {cantidad(gasto.gasto)}
-                      </td>
-                    </tr>
-                  );
-                })}
+                {metasAhorro
+                  .filter(meta => !meta.completada)
+                  .map(meta => {
+                    const progreso = meta.monto > 0 ? Math.min(100, Math.round((meta.ahorroAcumulado || 0) * 100 / meta.monto)) : 0;
+
+                    return (
+                      <tr key={meta.id}> {/* Asegúrate de que cada fila tenga una clave única */}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {meta.nombre}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                            {meta.categoria}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {meta.fechaObjetivo}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 text-right">
+                          {cantidad(meta.monto)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 text-right">
+                          {progreso}%
+                        </td>
+                      </tr>
+                    );
+                  })}
               </tbody>
             </table>
           </div>
