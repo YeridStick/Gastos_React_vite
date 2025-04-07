@@ -1,18 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 
 // Iconos para categorías
-import IconoAhorro from '../../assets/img/icono_ahorro.svg';
 import IconoCasa from '../../assets/img/icono_casa.svg';
 import IconoComida from '../../assets/img/icono_comida.svg';
 import IconoGasto from '../../assets/img/icono_gastos.svg';
 import IconoOcio from '../../assets/img/icono_ocio.svg';
 import IconoSalud from '../../assets/img/icono_salud.svg';
 import IconoEducacion from '../../assets/img/icono_suscripciones.svg';
-import { cantidad, generarID } from '../../helpers/index';
+import { cantidad } from '../../helpers/index';
 
 // Categorías predefinidas
 const categoriasPredefinidas = [
-  { id: 'Ahorro', nombre: 'Ahorro', icono: IconoAhorro, color: 'bg-green-100 text-green-800' },
   { id: 'Comida', nombre: 'Comida', icono: IconoComida, color: 'bg-yellow-100 text-yellow-800' },
   { id: 'Casa', nombre: 'Casa', icono: IconoCasa, color: 'bg-blue-100 text-blue-800' },
   { id: 'Ocio', nombre: 'Ocio', icono: IconoOcio, color: 'bg-purple-100 text-purple-800' },
@@ -38,7 +36,6 @@ const coloresDisponibles = [
 export default function Categorias({ gastosState }) {
   const [gastosPorCategoria, setGastosPorCategoria] = useState({});
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState(null);
-  const [totalGastos, setTotalGastos] = useState(0);
   const [modalAbierto, setModalAbierto] = useState(false);
   
   // Nueva categoría
@@ -78,7 +75,6 @@ export default function Categorias({ gastosState }) {
     if (gastosState.length > 0) {
       // Calcular el total de todos los gastos
       const total = gastosState.reduce((sum, gasto) => sum + gasto.gasto, 0);
-      setTotalGastos(total);
 
       // Inicializar objeto para almacenar gastos por categoría
       const gastosPorCat = {};

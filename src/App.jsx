@@ -291,11 +291,55 @@ function App() {
       },
     }).then((result) => {
       if (result.isConfirmed) {
+        // Verificar si es un gasto de ahorro
+        const esGastoAhorro = gastos.categoria === "Ahorro";
+        let nombreMeta = null;
+        
+        // Si es un gasto de ahorro, extraer el nombre de la meta
+        if (esGastoAhorro) {
+          const nombreMetaMatch = gastos.nombreG.match(/Ahorro: (.*)/);
+          if (nombreMetaMatch && nombreMetaMatch[1]) {
+            nombreMeta = nombreMetaMatch[1];
+          }
+        }
+        
         const gastosActualizados = gastosState.filter(
           (item) => item.id !== gastos.id
         );
         setGastosState(gastosActualizados);
-
+        
+        // Si era un gasto de ahorro, actualizar la meta correspondiente
+        if (esGastoAhorro && nombreMeta) {
+          // Obtener las metas de ahorro actuales
+          const metasAhorroActuales = JSON.parse(localStorage.getItem('MetasAhorro')) || [];
+          
+          // Buscar la meta correspondiente
+          const metasActualizadas = metasAhorroActuales.map(meta => {
+            if (meta.nombre === nombreMeta) {
+              // Recalcular el ahorro acumulado basado en los gastos restantes
+              const gastosRelacionados = gastosActualizados.filter(
+                gasto => gasto.categoria === "Ahorro" && gasto.nombreG === `Ahorro: ${nombreMeta}`
+              );
+              
+              const nuevoAhorroAcumulado = gastosRelacionados.reduce(
+                (total, gasto) => total + gasto.gasto, 0
+              );
+              
+              const completada = nuevoAhorroAcumulado >= meta.monto;
+              
+              return {
+                ...meta,
+                ahorroAcumulado: completada ? meta.monto : nuevoAhorroAcumulado,
+                completada
+              };
+            }
+            return meta;
+          });
+          
+          // Guardar las metas actualizadas en localStorage
+          localStorage.setItem('MetasAhorro', JSON.stringify(metasActualizadas));
+        }
+  
         Swal.fire({
           title: "Gasto eliminado",
           icon: "success",
@@ -418,7 +462,13 @@ function App() {
                 />
               )}
               {activeTab === "gestionAhorro" && (
-                <GestionAhorro presupuesto={presupuesto} />
+                <GestionAhorro
+                  presupuesto={presupuesto}
+                  gastosState={gastosState}
+                  ingresosExtra={ingresosExtra}
+                  setGastosState={setGastosState}
+                  setIngresosExtra={setIngresosExtra}
+                />
               )}
               {activeTab === "reportes" && (
                 <Reportes

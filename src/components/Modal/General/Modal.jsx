@@ -41,7 +41,6 @@ export default function Modal({ setModal, guardarGastos, gastoEditar, setGastoEd
       } else {
         // Si no hay categorías guardadas, usar las predefinidas
         const categoriasPredefinidas = [
-          { id: 'Ahorro', nombre: 'Ahorro' },
           { id: 'Comida', nombre: 'Comida' },
           { id: 'Casa', nombre: 'Casa' },
           { id: 'Ocio', nombre: 'Ocio' },

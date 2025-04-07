@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { cantidad } from '../helpers/index.js';
+import { generarID } from "../helpers/index";
+import Swal from "sweetalert2";
 
-export default function GestionAhorro({ presupuesto }) {
+export default function GestionAhorro({ presupuesto, gastosState, ingresosExtra = [], setGastosState, setIngresosExtra }) {
   const [metasAhorro, setMetasAhorro] = useState([]);
   const [ahorroDisponible, setAhorroDisponible] = useState(0);
   const [distribucionAutomatica, setDistribucionAutomatica] = useState(true);
@@ -17,36 +19,12 @@ export default function GestionAhorro({ presupuesto }) {
       setMetasAhorro(metasAhorroLS);
     };
     
-    const calcularAhorroDisponible = () => {
-      // Obtener todos los gastos
-      const gastosLS = JSON.parse(localStorage.getItem('gastos')) || [];
-      
-      // Obtener todos los ingresos extra
-      const ingresosExtraLS = JSON.parse(localStorage.getItem('IngresosExtra')) || [];
-      
-      // Calcular el balance de los últimos 30 días
-      const fechaActual = new Date();
-      const hace30Dias = new Date();
-      hace30Dias.setDate(fechaActual.getDate() - 30);
-      
-      const gastosMes = gastosLS.filter(gasto => {
-        const fechaGasto = new Date(gasto.fecha);
-        return fechaGasto >= hace30Dias;
-      });
-      
-      const ingresosExtraMes = ingresosExtraLS.filter(ingreso => {
-        const fechaIngreso = new Date(ingreso.fecha);
-        return fechaIngreso >= hace30Dias;
-      });
-      
-      const totalGastos = gastosMes.reduce((total, gasto) => total + gasto.gasto, 0);
-      const totalIngresosExtra = ingresosExtraMes.reduce((total, ingreso) => total + ingreso.monto, 0);
-      
-      // Presupuesto mensual (presupuesto anual / 12)
-      const presupuestoMensual = presupuesto / 12;
-      
-      // Calcular ahorro disponible (lo que queda después de gastos)
-      const disponible = (presupuestoMensual + totalIngresosExtra) - totalGastos;
+    const calcularAhorroDisponible = () => {      
+      // Calcular el total de gastos
+      const totalGastos = gastosState.reduce((total, gasto) => total + gasto.gasto, 0);
+          
+      // Disponible = Presupuesto - Total de gastos
+      const disponible = presupuesto - totalGastos;
       
       // Solo guardar como disponible si es positivo
       setAhorroDisponible(disponible > 0 ? disponible : 0);
@@ -54,7 +32,64 @@ export default function GestionAhorro({ presupuesto }) {
     
     obtenerMetasAhorro();
     calcularAhorroDisponible();
-  }, [presupuesto]);
+  }, [presupuesto, gastosState, ingresosExtra]); // Incluir todas las dependencias
+  
+  // Función para crear un nuevo gasto de ahorro
+  const crearGastoAhorro = (monto, nombreMeta) => {
+    const nuevoGasto = {
+      nombreG: `Ahorro: ${nombreMeta}`,
+      gasto: monto,
+      categoria: "Ahorro",
+      id: generarID(),
+      fecha: Date.now()
+    };
+    
+    // Obtener gastos actuales
+    const gastosActuales = [...gastosState];
+    
+    // Añadir el nuevo gasto
+    const gastosActualizados = [nuevoGasto, ...gastosActuales];
+    
+    // Actualizar estado y localStorage
+    setGastosState(gastosActualizados);
+    localStorage.setItem('gastos', JSON.stringify(gastosActualizados));
+    
+    return nuevoGasto;
+  };
+  
+  // Función para crear un nuevo ingreso (cuando se retira dinero de una meta)
+  const crearIngresoExtra = (monto, nombreMeta) => {
+    const nuevoIngreso = {
+      descripcion: `Retiro de ahorro: ${nombreMeta}`,
+      monto: monto,
+      id: generarID(),
+      fecha: Date.now()
+    };
+    
+    // Obtener ingresos actuales
+    const ingresosActuales = [...ingresosExtra];
+    
+    // Añadir el nuevo ingreso
+    const ingresosActualizados = [nuevoIngreso, ...ingresosActuales];
+    
+    // Actualizar estado y localStorage
+    setIngresosExtra(ingresosActualizados);
+    localStorage.setItem('IngresosExtra', JSON.stringify(ingresosActualizados));
+    
+    return nuevoIngreso;
+  };
+  
+  // Función para eliminar gastos de ahorro cuando se retira todo
+  const eliminarGastosAhorro = (nombreMeta) => {
+    // Filtrar y eliminar todos los gastos relacionados con esta meta
+    const gastosActualizados = gastosState.filter(gasto => 
+      !(gasto.categoria === "Ahorro" && gasto.nombreG === `Ahorro: ${nombreMeta}`)
+    );
+    
+    // Actualizar estado y localStorage
+    setGastosState(gastosActualizados);
+    localStorage.setItem('gastos', JSON.stringify(gastosActualizados));
+  };
   
   // Distribuir el ahorro disponible entre las metas
   const distribuirAhorro = () => {
@@ -71,6 +106,7 @@ export default function GestionAhorro({ presupuesto }) {
     }
     
     let metasActualizadas = [...metasAhorro];
+    let totalDistribuido = 0;
     
     if (distribucionAutomatica) {
       // Distribuir equitativamente entre todas las metas activas
@@ -81,6 +117,8 @@ export default function GestionAhorro({ presupuesto }) {
         
         const nuevoAhorroAcumulado = (meta.ahorroAcumulado || 0) + ahorroProporcion;
         const completada = nuevoAhorroAcumulado >= meta.monto;
+        
+        totalDistribuido += ahorroProporcion;
         
         return {
           ...meta,
@@ -109,6 +147,8 @@ export default function GestionAhorro({ presupuesto }) {
         const ahorroAsignado = Math.min(faltante, ahorroRestante);
         ahorroRestante -= ahorroAsignado;
         
+        totalDistribuido += ahorroAsignado;
+        
         const nuevoAhorroAcumulado = (meta.ahorroAcumulado || 0) + ahorroAsignado;
         const completada = nuevoAhorroAcumulado >= meta.monto;
         
@@ -118,6 +158,11 @@ export default function GestionAhorro({ presupuesto }) {
           completada
         };
       });
+    }
+    
+    // Si se distribuyó alguna cantidad, crear un gasto
+    if (totalDistribuido > 0) {
+      crearGastoAhorro(totalDistribuido, 'Distribución automática');
     }
     
     // Guardar las metas actualizadas en localStorage
@@ -135,6 +180,12 @@ export default function GestionAhorro({ presupuesto }) {
       return;
     }
     
+    const meta = metasAhorro.find(m => m.id === id);
+    if (!meta) return;
+    
+    // Crear el gasto de ahorro para esta asignación
+    crearGastoAhorro(monto, meta.nombre);
+    
     const metasActualizadas = metasAhorro.map(meta => {
       if (meta.id !== id) return meta;
       
@@ -148,12 +199,91 @@ export default function GestionAhorro({ presupuesto }) {
       };
     });
     
+    // Guardar las metas actualizadas en localStorage
     localStorage.setItem('MetasAhorro', JSON.stringify(metasActualizadas));
     setMetasAhorro(metasActualizadas);
     setAhorroDisponible(ahorroDisponible - monto);
     
     mostrarExito(`¡${monto.toFixed(2)} asignados correctamente!`);
   };
+
+  // Esta función sincroniza las metas de ahorro con los gastos existentes
+  const sincronizarMetasConGastos = () => {
+    // 1. Obtener todos los gastos de ahorro
+    const gastosAhorro = gastosState.filter(gasto => gasto.categoria === "Ahorro");
+    
+    // 2. Crear un mapa de gastos por meta
+    const gastosPorMeta = {};
+    
+    gastosAhorro.forEach(gasto => {
+      // Extraer el nombre de la meta del nombre del gasto (que sigue el formato "Ahorro: NombreMeta")
+      const nombreMetaMatch = gasto.nombreG.match(/Ahorro: (.*)/);
+      if (nombreMetaMatch && nombreMetaMatch[1]) {
+        const nombreMeta = nombreMetaMatch[1];
+        
+        if (!gastosPorMeta[nombreMeta]) {
+          gastosPorMeta[nombreMeta] = 0;
+        }
+        
+        gastosPorMeta[nombreMeta] += gasto.gasto;
+      }
+    });
+    
+    // 3. Actualizar las metas según los gastos existentes
+    const metasActualizadas = metasAhorro.map(meta => {
+      const gastosTotales = gastosPorMeta[meta.nombre] || 0;
+      const completada = gastosTotales >= meta.monto;
+      
+      return {
+        ...meta,
+        ahorroAcumulado: completada ? meta.monto : gastosTotales,
+        completada
+      };
+    });
+    
+    // 4. Actualizar el estado y localStorage solo si hay cambios
+    if (JSON.stringify(metasActualizadas) !== JSON.stringify(metasAhorro)) {
+      setMetasAhorro(metasActualizadas);
+      localStorage.setItem('MetasAhorro', JSON.stringify(metasActualizadas));
+      
+      // Opcional: Mostrar mensaje informativo si hubo cambios significativos
+      const metasCambiadas = metasAhorro.filter((meta, index) => {
+        return meta.ahorroAcumulado !== metasActualizadas[index].ahorroAcumulado;
+      });
+      
+      if (metasCambiadas.length > 0) {
+        mostrarExito('Metas de ahorro sincronizadas con los gastos actuales');
+      }
+    }
+  };
+
+  useEffect(() => {
+    const obtenerMetasAhorro = () => {
+      const metasAhorroLS = JSON.parse(localStorage.getItem('MetasAhorro')) || [];
+      setMetasAhorro(metasAhorroLS);
+    };
+    
+    const calcularAhorroDisponible = () => {      
+      // Calcular el total de gastos
+      const totalGastos = gastosState.reduce((total, gasto) => total + gasto.gasto, 0);
+          
+      // Disponible = Presupuesto - Total de gastos
+      const disponible = presupuesto - totalGastos;
+      
+      // Solo guardar como disponible si es positivo
+      setAhorroDisponible(disponible > 0 ? disponible : 0);
+    };
+    
+    obtenerMetasAhorro();
+    calcularAhorroDisponible();
+    
+    // Sincronizar metas de ahorro con gastos existentes
+    // Ejecutamos esto después de cargar las metas
+    setTimeout(() => {
+      sincronizarMetasConGastos();
+    }, 100);
+    
+  }, [presupuesto, gastosState, ingresosExtra]); // Incluir todas las dependencias
 
   // Ajustar ahorro de una meta (quitar o agregar)
   const ajustarAhorroMeta = (id, cantidadAjuste) => {
@@ -172,6 +302,15 @@ export default function GestionAhorro({ presupuesto }) {
     if (cantidadAjuste > 0 && cantidadAjuste > ahorroDisponible) {
       mostrarError(`No puedes agregar más de lo disponible (${cantidad(ahorroDisponible)})`);
       return;
+    }
+    
+    // Si es un ajuste positivo (agregar fondos), crear un gasto
+    if (cantidadAjuste > 0) {
+      crearGastoAhorro(cantidadAjuste, meta.nombre);
+    } 
+    // Si es un ajuste negativo (retirar fondos), crear un ingreso
+    else if (cantidadAjuste < 0) {
+      crearIngresoExtra(Math.abs(cantidadAjuste), meta.nombre);
     }
     
     const nuevoAhorroAcumulado = ahorroActual + cantidadAjuste;
@@ -202,6 +341,63 @@ export default function GestionAhorro({ presupuesto }) {
     // Cerrar el modo edición
     setMetaEnEdicion(null);
     setCantidadAjuste('');
+  };
+  
+  // Función para retirar todo el ahorro acumulado de una meta
+  const retirarTodoAhorro = (id) => {
+    const meta = metasAhorro.find(m => m.id === id);
+    if (!meta) return;
+    
+    const ahorroActual = meta.ahorroAcumulado || 0;
+    
+    if (ahorroActual <= 0) {
+      mostrarError('Esta meta no tiene fondos para retirar');
+      return;
+    }
+    
+    // Pedir confirmación antes de retirar
+    Swal.fire({
+      title: '¿Retirar todo el ahorro?',
+      text: `¿Estás seguro que deseas retirar ${cantidad(ahorroActual)} de "${meta.nombre}"?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#3b82f6',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Sí, retirar',
+      cancelButtonText: 'Cancelar'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        // Eliminar todos los gastos asociados a esta meta
+        eliminarGastosAhorro(meta.nombre);
+        
+        // Crear ingreso por el retiro
+        crearIngresoExtra(ahorroActual, meta.nombre);
+        
+        // Actualizar la meta
+        const metasActualizadas = metasAhorro.map(m => {
+          if (m.id !== id) return m;
+          
+          return {
+            ...m,
+            ahorroAcumulado: 0,
+            completada: false
+          };
+        });
+        
+        // Guardar cambios
+        localStorage.setItem('MetasAhorro', JSON.stringify(metasActualizadas));
+        setMetasAhorro(metasActualizadas);
+        
+        // Notificar éxito
+        Swal.fire({
+          title: '¡Retiro completado!',
+          text: `Se han retirado ${cantidad(ahorroActual)} de "${meta.nombre}"`,
+          icon: 'success',
+          timer: 2000,
+          showConfirmButton: false
+        });
+      }
+    });
   };
 
   // Función para mostrar mensaje de éxito
@@ -324,41 +520,53 @@ export default function GestionAhorro({ presupuesto }) {
                         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
                           {!enEdicion ? (
                             <>
-                              <input
-                                type="number"
-                                min="0"
-                                max={ahorroDisponible}
-                                step="100"
-                                placeholder="Cantidad"
-                                className="block w-24 py-1 px-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-                                id={`cantidad-${meta.id}`}
-                              />
-                              <button
-                                onClick={() => {
-                                  const input = document.getElementById(`cantidad-${meta.id}`);
-                                  const cantidad = parseFloat(input.value);
-                                  if (isNaN(cantidad) || cantidad <= 0) {
-                                    mostrarError('Ingresa una cantidad válida');
-                                    return;
-                                  }
-                                  distribuirAhorroAMeta(meta.id, cantidad);
-                                  input.value = '';
-                                }}
-                                disabled={ahorroDisponible <= 0}
-                                className={`px-3 py-1 rounded text-sm font-medium ${
-                                  ahorroDisponible > 0
-                                    ? 'bg-blue-100 text-blue-800 hover:bg-blue-200'
-                                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                }`}
-                              >
-                                Asignar
-                              </button>
-                              <button
-                                onClick={() => setMetaEnEdicion(meta.id)}
-                                className="px-3 py-1 rounded text-sm font-medium bg-gray-100 text-gray-800 hover:bg-gray-200"
-                              >
-                                Ajustar
-                              </button>
+                              <div className="flex flex-col sm:flex-row gap-2">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max={ahorroDisponible}
+                                  step="100"
+                                  placeholder="Cantidad"
+                                  className="block w-24 py-1 px-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                                  id={`cantidad-${meta.id}`}
+                                />
+                                <button
+                                  onClick={() => {
+                                    const input = document.getElementById(`cantidad-${meta.id}`);
+                                    const cantidad = parseFloat(input.value);
+                                    if (isNaN(cantidad) || cantidad <= 0) {
+                                      mostrarError('Ingresa una cantidad válida');
+                                      return;
+                                    }
+                                    distribuirAhorroAMeta(meta.id, cantidad);
+                                    input.value = '';
+                                  }}
+                                  disabled={ahorroDisponible <= 0}
+                                  className={`px-3 py-1 rounded text-sm font-medium ${
+                                    ahorroDisponible > 0
+                                      ? 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                                      : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                  }`}
+                                >
+                                  Asignar
+                                </button>
+                              </div>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => setMetaEnEdicion(meta.id)}
+                                  className="px-3 py-1 rounded text-sm font-medium bg-gray-100 text-gray-800 hover:bg-gray-200"
+                                >
+                                  Ajustar
+                                </button>
+                                {meta.ahorroAcumulado > 0 && (
+                                  <button
+                                    onClick={() => retirarTodoAhorro(meta.id)}
+                                    className="px-3 py-1 rounded text-sm font-medium bg-red-100 text-red-800 hover:bg-red-200"
+                                  >
+                                    Retirar Todo
+                                  </button>
+                                )}
+                              </div>
                             </>
                           ) : (
                             <>
@@ -460,6 +668,12 @@ export default function GestionAhorro({ presupuesto }) {
                               className="px-3 py-1 rounded text-sm font-medium bg-gray-100 text-gray-800 hover:bg-gray-200"
                             >
                               Ajustar
+                            </button>
+                            <button
+                              onClick={() => retirarTodoAhorro(meta.id)}
+                              className="px-3 py-1 rounded text-sm font-medium bg-red-100 text-red-800 hover:bg-red-200"
+                            >
+                              Retirar Todo
                             </button>
                           </div>
                         ) : (
