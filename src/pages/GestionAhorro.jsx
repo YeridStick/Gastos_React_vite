@@ -419,35 +419,35 @@ export default function GestionAhorro({ presupuesto, gastosState, ingresosExtra 
   };
   
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-semibold text-gray-800">Gestión de Ahorro</h2>
+        <h2 className="text-xl sm:text-2xl font-semibold text-gray-800">Gestión de Ahorro</h2>
       </div>
       
       {mensajeExito && (
-        <div className="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded">
+        <div className="bg-green-100 border-l-4 border-green-500 text-green-700 p-3 sm:p-4 rounded text-sm">
           <p>{mensajeExito}</p>
         </div>
       )}
 
       {mensajeError && (
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded">
+        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-3 sm:p-4 rounded text-sm">
           <p>{mensajeError}</p>
         </div>
       )}
       
       {/* Resumen de ahorro disponible */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <div className="p-5">
-          <h3 className="text-lg font-medium text-gray-900">Ahorro Disponible</h3>
-          <div className="mt-4">
-            <span className="text-3xl font-bold text-green-600">
+        <div className="p-4 sm:p-5">
+          <h3 className="text-base sm:text-lg font-medium text-gray-900">Ahorro Disponible</h3>
+          <div className="mt-3 sm:mt-4">
+            <span className="text-xl sm:text-3xl font-bold text-green-600">
               {cantidad(ahorroDisponible)}
             </span>
-            <p className="mt-2 text-sm text-gray-500">
+            <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-gray-500">
               Este es el dinero que puedes distribuir entre tus metas de ahorro.
             </p>
-            <div className="mt-4 flex flex-col sm:flex-row gap-3">
+            <div className="mt-3 sm:mt-4 flex flex-col sm:flex-row gap-2 sm:gap-3">
               <div className="flex items-center">
                 <input
                   type="checkbox"
@@ -456,14 +456,14 @@ export default function GestionAhorro({ presupuesto, gastosState, ingresosExtra 
                   onChange={() => setDistribucionAutomatica(!distribucionAutomatica)}
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500"
                 />
-                <label htmlFor="distribucionAutomatica" className="ml-2 text-sm text-gray-700">
+                <label htmlFor="distribucionAutomatica" className="ml-2 text-xs sm:text-sm text-gray-700">
                   Distribución automática equitativa
                 </label>
               </div>
               <button
                 onClick={distribuirAhorro}
                 disabled={ahorroDisponible <= 0}
-                className={`px-4 py-2 rounded text-sm font-medium ${
+                className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded text-xs sm:text-sm font-medium ${
                   ahorroDisponible > 0
                     ? 'bg-blue-600 text-white hover:bg-blue-700'
                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'
@@ -478,8 +478,8 @@ export default function GestionAhorro({ presupuesto, gastosState, ingresosExtra 
       
       {/* Metas de ahorro */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200">
+          <h3 className="text-base sm:text-lg font-medium text-gray-900">
             Metas de Ahorro
           </h3>
         </div>
@@ -494,40 +494,40 @@ export default function GestionAhorro({ presupuesto, gastosState, ingresosExtra 
                 const enEdicion = metaEnEdicion === meta.id;
                 
                 return (
-                  <div key={meta.id} className="p-6">
-                    <div className="flex flex-col gap-4">
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div key={meta.id} className="p-4 sm:p-6">
+                    <div className="flex flex-col gap-3 sm:gap-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
                         <div>
-                          <h4 className="text-lg font-medium text-gray-900">{meta.nombre}</h4>
-                          <p className="text-sm text-gray-500">Meta: {cantidad(meta.monto)}</p>
+                          <h4 className="text-base sm:text-lg font-medium text-gray-900 truncate">{meta.nombre}</h4>
+                          <p className="text-xs sm:text-sm text-gray-500">Meta: {cantidad(meta.monto)}</p>
                           <div className="mt-2 flex items-center">
-                            <div className="w-full bg-gray-200 rounded-full h-2.5">
+                            <div className="w-full bg-gray-200 rounded-full h-1.5 sm:h-2.5">
                               <div
-                                className="bg-blue-600 h-2.5 rounded-full"
+                                className="bg-blue-600 h-1.5 sm:h-2.5 rounded-full"
                                 style={{ width: `${progreso}%` }}
                               ></div>
                             </div>
-                            <span className="ml-2 text-sm font-medium text-gray-700">
+                            <span className="ml-2 text-xs sm:text-sm font-medium text-gray-700">
                               {progreso}%
                             </span>
                           </div>
-                          <div className="mt-1 flex justify-between text-sm">
+                          <div className="mt-1 flex justify-between text-xs sm:text-sm">
                             <span className="text-gray-500">Ahorrado: {cantidad(meta.ahorroAcumulado || 0)}</span>
                             <span className="text-gray-500">Falta: {cantidad(faltante)}</span>
                           </div>
                         </div>
                         
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                        <div className="flex flex-col gap-2">
                           {!enEdicion ? (
                             <>
-                              <div className="flex flex-col sm:flex-row gap-2">
+                              <div className="flex items-center gap-2">
                                 <input
                                   type="number"
                                   min="0"
                                   max={ahorroDisponible}
                                   step="100"
                                   placeholder="Cantidad"
-                                  className="block w-24 py-1 px-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                                  className="block w-24 py-1 px-2 text-sm border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md"
                                   id={`cantidad-${meta.id}`}
                                 />
                                 <button
@@ -542,7 +542,7 @@ export default function GestionAhorro({ presupuesto, gastosState, ingresosExtra 
                                     input.value = '';
                                   }}
                                   disabled={ahorroDisponible <= 0}
-                                  className={`px-3 py-1 rounded text-sm font-medium ${
+                                  className={`px-2 sm:px-3 py-1 rounded text-xs sm:text-sm font-medium ${
                                     ahorroDisponible > 0
                                       ? 'bg-blue-100 text-blue-800 hover:bg-blue-200'
                                       : 'bg-gray-100 text-gray-400 cursor-not-allowed'
@@ -554,16 +554,16 @@ export default function GestionAhorro({ presupuesto, gastosState, ingresosExtra 
                               <div className="flex gap-2">
                                 <button
                                   onClick={() => setMetaEnEdicion(meta.id)}
-                                  className="px-3 py-1 rounded text-sm font-medium bg-gray-100 text-gray-800 hover:bg-gray-200"
+                                  className="px-2 sm:px-3 py-1 rounded text-xs sm:text-sm font-medium bg-gray-100 text-gray-800 hover:bg-gray-200"
                                 >
                                   Ajustar
                                 </button>
                                 {meta.ahorroAcumulado > 0 && (
                                   <button
                                     onClick={() => retirarTodoAhorro(meta.id)}
-                                    className="px-3 py-1 rounded text-sm font-medium bg-red-100 text-red-800 hover:bg-red-200"
+                                    className="px-2 sm:px-3 py-1 rounded text-xs sm:text-sm font-medium bg-red-100 text-red-800 hover:bg-red-200"
                                   >
-                                    Retirar Todo
+                                    Retirar
                                   </button>
                                 )}
                               </div>
@@ -571,15 +571,15 @@ export default function GestionAhorro({ presupuesto, gastosState, ingresosExtra 
                           ) : (
                             <>
                               <div className="w-full flex flex-col gap-2">
-                                <div className="flex flex-col sm:flex-row items-center gap-2">
+                                <div className="flex items-center gap-2">
                                   <input
                                     type="number"
                                     value={cantidadAjuste}
                                     onChange={(e) => setCantidadAjuste(e.target.value)}
-                                    placeholder="Cantidad a ajustar"
-                                    className="block w-full sm:w-36 py-1 px-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                                    placeholder="Cantidad"
+                                    className="block w-20 sm:w-24 py-1 px-2 text-xs sm:text-sm border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md"
                                   />
-                                  <div className="flex space-x-2">
+                                  <div className="flex space-x-1 sm:space-x-2">
                                     <button
                                       onClick={() => {
                                         const monto = parseFloat(cantidadAjuste);
@@ -589,9 +589,9 @@ export default function GestionAhorro({ presupuesto, gastosState, ingresosExtra 
                                         }
                                         ajustarAhorroMeta(meta.id, monto);
                                       }}
-                                      className="px-3 py-1 rounded text-sm font-medium bg-green-100 text-green-800 hover:bg-green-200"
+                                      className="px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800 hover:bg-green-200"
                                     >
-                                      Agregar
+                                      +
                                     </button>
                                     <button
                                       onClick={() => {
@@ -602,21 +602,21 @@ export default function GestionAhorro({ presupuesto, gastosState, ingresosExtra 
                                         }
                                         ajustarAhorroMeta(meta.id, -monto);
                                       }}
-                                      className="px-3 py-1 rounded text-sm font-medium bg-red-100 text-red-800 hover:bg-red-200"
+                                      className="px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-800 hover:bg-red-200"
                                     >
-                                      Quitar
+                                      -
                                     </button>
                                   </div>
                                 </div>
                                 <p className="text-xs text-gray-500">
-                                  (Para agregar/quitar del ahorro acumulado)
+                                  Para agregar/quitar ahorro
                                 </p>
                                 <button
                                   onClick={() => {
                                     setMetaEnEdicion(null);
                                     setCantidadAjuste('');
                                   }}
-                                  className="px-3 py-1 rounded text-sm font-medium bg-gray-100 text-gray-800 hover:bg-gray-200"
+                                  className="px-2 sm:px-3 py-1 rounded text-xs sm:text-sm font-medium bg-gray-100 text-gray-800 hover:bg-gray-200"
                                 >
                                   Cancelar
                                 </button>
@@ -631,8 +631,8 @@ export default function GestionAhorro({ presupuesto, gastosState, ingresosExtra 
               })}
           </div>
         ) : (
-          <div className="py-12 text-center">
-            <p className="text-gray-500">No hay metas de ahorro activas</p>
+          <div className="py-8 sm:py-12 text-center">
+            <p className="text-xs sm:text-sm text-gray-500">No hay metas de ahorro activas</p>
           </div>
         )}
         

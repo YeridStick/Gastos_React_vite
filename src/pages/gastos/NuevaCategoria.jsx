@@ -202,15 +202,15 @@ export default function Categorias({ gastosState }) {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-semibold text-gray-800">Categorías</h2>
-        <div className="flex space-x-2">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+        <h2 className="text-xl sm:text-2xl font-semibold text-gray-800">Categorías</h2>
+        <div>
           <button 
             onClick={() => setModalAbierto(true)}
-            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 flex items-center"
+            className="w-full sm:w-auto px-3 py-2 sm:px-4 sm:py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 flex items-center justify-center sm:justify-start"
           >
-            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
             </svg>
             Nueva Categoría
@@ -219,7 +219,7 @@ export default function Categorias({ gastosState }) {
       </div>
 
       {/* Tarjetas de categorías */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-3 sm:gap-6">
         {categorias.map(categoria => {
           const stats = gastosPorCategoria[categoria.id] || { 
             total: 0, 
@@ -232,16 +232,16 @@ export default function Categorias({ gastosState }) {
               key={categoria.id}
               className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
             >
-              <div className="p-5">
+              <div className="p-4 sm:p-5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${categoria.color.split(' ')[0]}`}>
-                      <img src={categoria.icono} alt={categoria.nombre} className="w-6 h-6" />
+                    <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center ${categoria.color.split(' ')[0]}`}>
+                      <img src={categoria.icono} alt={categoria.nombre} className="w-4 h-4 sm:w-6 sm:h-6" />
                     </div>
-                    <h3 className="ml-3 text-lg font-medium text-gray-900">{categoria.nombre}</h3>
+                    <h3 className="ml-2 sm:ml-3 text-base sm:text-lg font-medium text-gray-900 truncate">{categoria.nombre}</h3>
                   </div>
                   <div className="flex items-center">
-                    <span className="text-sm font-medium text-gray-500 mr-2">
+                    <span className="text-xs sm:text-sm font-medium text-gray-500 mr-2">
                       {stats.cantidad} gastos
                     </span>
                     
@@ -252,20 +252,20 @@ export default function Categorias({ gastosState }) {
                         className="p-1 text-gray-400 hover:text-red-500"
                         title="Eliminar categoría"
                       >
-                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="h-4 w-4 sm:h-5 sm:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
                       </button>
                     )}
                   </div>
                 </div>
-                <div className="mt-4">
+                <div className="mt-3 sm:mt-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-500">Total gastado</span>
-                    <span className="text-lg font-semibold text-gray-900">{cantidad(stats.total)}</span>
+                    <span className="text-xs sm:text-sm font-medium text-gray-500">Total gastado</span>
+                    <span className="text-sm sm:text-lg font-semibold text-gray-900">{cantidad(stats.total)}</span>
                   </div>
                   <div className="mt-2">
-                    <div className="overflow-hidden h-2 text-xs flex rounded bg-gray-200">
+                    <div className="overflow-hidden h-1.5 sm:h-2 text-xs flex rounded bg-gray-200">
                       <div 
                         style={{ width: `${stats.porcentaje}%` }}
                         className={`shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center ${
@@ -280,12 +280,12 @@ export default function Categorias({ gastosState }) {
                     </div>
                   </div>
                 </div>
-                <div className="mt-4">
+                <div className="mt-3 sm:mt-4">
                   <button
                     onClick={() => setCategoriaSeleccionada(
                       categoriaSeleccionada?.id === categoria.id ? null : categoria
                     )}
-                    className="w-full py-2 px-3 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    className="w-full py-1.5 sm:py-2 px-3 border border-gray-300 rounded-md text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-50"
                   >
                     {categoriaSeleccionada?.id === categoria.id ? 'Ocultar detalles' : 'Ver detalles'}
                   </button>
@@ -298,21 +298,21 @@ export default function Categorias({ gastosState }) {
 
       {/* Detalles de categoría seleccionada */}
       {categoriaSeleccionada && (
-        <div className="mt-8 bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+        <div className="mt-4 sm:mt-8 bg-white rounded-lg shadow-md overflow-hidden">
+          <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 flex items-center justify-between">
             <div className="flex items-center">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${categoriaSeleccionada.color.split(' ')[0]}`}>
-                <img src={categoriaSeleccionada.icono} alt={categoriaSeleccionada.nombre} className="w-6 h-6" />
+              <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center ${categoriaSeleccionada.color.split(' ')[0]}`}>
+                <img src={categoriaSeleccionada.icono} alt={categoriaSeleccionada.nombre} className="w-4 h-4 sm:w-6 sm:h-6" />
               </div>
-              <h3 className="ml-3 text-lg font-medium text-gray-900">
+              <h3 className="ml-2 sm:ml-3 text-base sm:text-lg font-medium text-gray-900 truncate">
                 Gastos en {categoriaSeleccionada.nombre}
               </h3>
             </div>
             <button 
               onClick={() => setCategoriaSeleccionada(null)}
-              className="p-2 rounded-full hover:bg-gray-100"
+              className="p-1.5 sm:p-2 rounded-full hover:bg-gray-100"
             >
-              <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+              <svg className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
               </svg>
             </button>
@@ -323,13 +323,13 @@ export default function Categorias({ gastosState }) {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Concepto
                     </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Fecha
                     </th>
-                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-3 sm:px-6 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Monto
                     </th>
                   </tr>
@@ -344,13 +344,15 @@ export default function Categorias({ gastosState }) {
                       
                       return (
                         <tr key={gasto.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {gasto.nombreG}
+                          <td className="px-3 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900">
+                            <div className="truncate max-w-32 sm:max-w-none">
+                              {gasto.nombreG}
+                            </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-3 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">
                             {formatoFecha}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 text-right">
+                          <td className="px-3 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900 text-right">
                             {cantidad(gasto.gasto)}
                           </td>
                         </tr>
@@ -359,10 +361,10 @@ export default function Categorias({ gastosState }) {
                 </tbody>
                 <tfoot className="bg-gray-50">
                   <tr>
-                    <th scope="row" colSpan="2" className="px-6 py-3 text-left text-sm font-medium text-gray-900">
+                    <th scope="row" colSpan="2" className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-900">
                       Total {categoriaSeleccionada.nombre}
                     </th>
-                    <td className="px-6 py-3 text-right text-sm font-medium text-gray-900">
+                    <td className="px-3 sm:px-6 py-2 sm:py-3 text-right text-xs sm:text-sm font-medium text-gray-900">
                       {cantidad(gastosPorCategoria[categoriaSeleccionada.id]?.total || 0)}
                     </td>
                   </tr>
@@ -370,8 +372,8 @@ export default function Categorias({ gastosState }) {
               </table>
             </div>
           ) : (
-            <div className="py-12 text-center">
-              <p className="text-gray-500">No hay gastos registrados en esta categoría</p>
+            <div className="py-8 sm:py-12 text-center">
+              <p className="text-xs sm:text-sm text-gray-500">No hay gastos registrados en esta categoría</p>
             </div>
           )}
         </div>
@@ -397,13 +399,13 @@ export default function Categorias({ gastosState }) {
               aria-labelledby="modal-headline"
             >
               {/* Botón cerrar */}
-              <div className="absolute top-0 right-0 p-4">
+              <div className="absolute top-0 right-0 p-3 sm:p-4">
                 <button 
                   onClick={() => setModalAbierto(false)}
                   className="text-gray-400 hover:text-gray-500 focus:outline-none"
                 >
                   <span className="sr-only">Cerrar</span>
-                  <svg className="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="h-5 w-5 sm:h-6 sm:w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
@@ -413,12 +415,12 @@ export default function Categorias({ gastosState }) {
               <div className="px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div className="sm:flex sm:items-start">
                   <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
-                    <h3 className="text-2xl leading-6 font-semibold text-gray-900 mb-4" id="modal-headline">
+                    <h3 className="text-xl sm:text-2xl leading-6 font-semibold text-gray-900 mb-4" id="modal-headline">
                       Nueva Categoría
                     </h3>
                     
                     {error && (
-                      <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4 rounded">
+                      <div className="bg-red-50 border-l-4 border-red-500 p-3 sm:p-4 mb-4 rounded">
                         <div className="flex">
                           <div className="flex-shrink-0">
                             <svg className="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
@@ -426,7 +428,7 @@ export default function Categorias({ gastosState }) {
                             </svg>
                           </div>
                           <div className="ml-3">
-                            <p className="text-sm text-red-700">
+                            <p className="text-xs sm:text-sm text-red-700">
                               El nombre de la categoría es requerido y debe ser único
                             </p>
                           </div>
@@ -436,7 +438,7 @@ export default function Categorias({ gastosState }) {
                     
                     <form className="space-y-4">
                       <div>
-                        <label htmlFor="nombreCategoria" className="block text-sm font-medium text-gray-700">
+                        <label htmlFor="nombreCategoria" className="block text-xs sm:text-sm font-medium text-gray-700">
                           Nombre de la Categoría
                         </label>
                         <input
@@ -445,13 +447,13 @@ export default function Categorias({ gastosState }) {
                           id="nombreCategoria"
                           value={nuevaCategoria.nombre}
                           onChange={(e) => setNuevaCategoria({...nuevaCategoria, nombre: e.target.value})}
-                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-xs sm:text-sm"
                           placeholder="Ej: Transporte"
                         />
                       </div>
                       
                       <div>
-                        <label className="block text-sm font-medium text-gray-700">
+                        <label className="block text-xs sm:text-sm font-medium text-gray-700">
                           Color
                         </label>
                         <div className="mt-2 grid grid-cols-5 gap-2">
@@ -460,13 +462,13 @@ export default function Categorias({ gastosState }) {
                               key={color.id}
                               type="button"
                               onClick={() => setNuevaCategoria({...nuevaCategoria, color: color.valor})}
-                              className={`w-full h-10 rounded-md ${color.valor} flex items-center justify-center ${
+                              className={`w-full h-8 sm:h-10 rounded-md ${color.valor} flex items-center justify-center ${
                                 nuevaCategoria.color === color.valor ? 'ring-2 ring-offset-2 ring-blue-500' : ''
                               }`}
                               title={color.nombre}
                             >
                               {nuevaCategoria.color === color.valor && (
-                                <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                                <svg className="h-4 w-4 sm:h-5 sm:w-5" fill="currentColor" viewBox="0 0 20 20">
                                   <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                                 </svg>
                               )}
@@ -479,16 +481,16 @@ export default function Categorias({ gastosState }) {
                         <button
                           type="button"
                           onClick={() => setModalAbierto(false)}
-                          className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                          className="px-3 py-1.5 sm:px-4 sm:py-2 border border-gray-300 rounded-md text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-50"
                         >
                           Cancelar
                         </button>
                         <button
                           type="button"
                           onClick={agregarCategoria}
-                          className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                          className="px-3 py-1.5 sm:px-4 sm:py-2 bg-blue-600 text-white text-xs sm:text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                         >
-                          Guardar Categoría
+                          Guardar
                         </button>
                       </div>
                     </form>

@@ -50,6 +50,25 @@ export default function Reportes({
     proyeccionCompletitud: 0,
     totalGastosAhorro: 0,
   });
+  
+  // Estado para secciones colapsables en móvil
+  const [seccionesVisibles, setSeccionesVisibles] = useState({
+    resumenFinanciero: true,
+    resumenAhorro: true,
+    estadisticasGastos: true,
+    desgloseAhorro: true,
+    progresoMetas: true,
+    desgloseCategorias: true,
+    metasActivas: true
+  });
+
+  // Toggle para expandir/contraer secciones en móvil
+  const toggleSeccion = (seccion) => {
+    setSeccionesVisibles(prev => ({
+      ...prev,
+      [seccion]: !prev[seccion]
+    }));
+  };
 
   // Lista de meses para el selector
   const meses = [
@@ -83,7 +102,6 @@ export default function Reportes({
       generarReporte();
     }
   }, [
-  
     periodoSeleccionado,
     mesSeleccionado,
     añoSeleccionado
@@ -403,18 +421,53 @@ export default function Reportes({
   // Título del periodo actual para usar en exportaciones
   const tituloPeriodo = obtenerTituloPeriodo();
 
+  // Componente para secciones colapsables en móvil
+  const SeccionColapsable = ({ titulo, id, children }) => {
+    const isVisible = seccionesVisibles[id];
+    
+    return (
+      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <div 
+          className="px-4 py-3 sm:px-6 sm:py-4 border-b border-gray-200 flex justify-between items-center cursor-pointer" 
+          onClick={() => toggleSeccion(id)}
+        >
+          <h3 className="text-base sm:text-lg font-medium text-gray-900">
+            {titulo}
+          </h3>
+          <svg 
+            className={`h-5 w-5 text-gray-500 transition-transform ${isVisible ? 'transform rotate-180' : ''}`} 
+            fill="none" 
+            viewBox="0 0 24 24" 
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+        {isVisible && (
+          <div className="p-4 sm:p-6">
+            {children}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Cabecera con título y botones de exportación */}
       <CabeceraReporte 
         titulo="Reportes" 
         barraExportacion={
-          <BarraExportacion 
-            datosReporte={datosReporte} 
-            periodo={tituloPeriodo}
-            metasAhorro={metasAhorro} 
-            formatearFecha={formatearFecha} 
-          />
+          <div className="overflow-x-auto -mx-4 sm:mx-0 pb-2">
+            <div className="px-4 sm:px-0">
+              <BarraExportacion 
+                datosReporte={datosReporte} 
+                periodo={tituloPeriodo}
+                metasAhorro={metasAhorro} 
+                formatearFecha={formatearFecha} 
+              />
+            </div>
+          </div>
         }
       />
 
@@ -431,35 +484,49 @@ export default function Reportes({
       />
 
       {/* Título del reporte */}
-      <TituloReporte titulo={`Reporte Financiero: ${tituloPeriodo}`} />
+      <TituloReporte titulo={`Reporte: ${tituloPeriodo}`} className="text-lg sm:text-xl font-bold" />
 
       {/* Resumen Financiero */}
-      <ResumenFinanciero datosReporte={datosReporte} />
+      <SeccionColapsable titulo="Resumen Financiero" id="resumenFinanciero">
+        <ResumenFinanciero datosReporte={datosReporte} />
+      </SeccionColapsable>
 
       {/* Resumen de Ahorro */}
-      <ResumenAhorro datosReporte={datosReporte} />
+      <SeccionColapsable titulo="Resumen de Ahorro" id="resumenAhorro">
+        <ResumenAhorro datosReporte={datosReporte} />
+      </SeccionColapsable>
 
       {/* Estadísticas de Gastos */}
-      <EstadisticasGastos datosReporte={datosReporte} />
+      <SeccionColapsable titulo="Estadísticas de Gastos" id="estadisticasGastos">
+        <EstadisticasGastos datosReporte={datosReporte} />
+      </SeccionColapsable>
 
       {/* Desglose de Ahorro Por Meta */}
-      <DesgloseAhorroPorMeta datosReporte={datosReporte} />
+      <SeccionColapsable titulo="Desglose de Ahorro Por Meta" id="desgloseAhorro">
+        <DesgloseAhorroPorMeta datosReporte={datosReporte} />
+      </SeccionColapsable>
 
       {/* Progreso de Metas de Ahorro */}
-      <ProgresoMetasAhorro 
-        metasAhorro={metasAhorro} 
-        datosReporte={datosReporte} 
-        formatearFecha={formatearFecha} 
-      />
+      <SeccionColapsable titulo="Progreso de Metas de Ahorro" id="progresoMetas">
+        <ProgresoMetasAhorro 
+          metasAhorro={metasAhorro} 
+          datosReporte={datosReporte} 
+          formatearFecha={formatearFecha} 
+        />
+      </SeccionColapsable>
 
       {/* Desglose por Categorías */}
-      <DesglosePorCategorias datosReporte={datosReporte} />
+      <SeccionColapsable titulo="Desglose por Categorías" id="desgloseCategorias">
+        <DesglosePorCategorias datosReporte={datosReporte} />
+      </SeccionColapsable>
 
       {/* Metas de Ahorro Activas */}
-      <MetasAhorroActivas 
-        metasAhorro={metasAhorro} 
-        formatearFecha={formatearFecha} 
-      />
+      <SeccionColapsable titulo="Metas de Ahorro Activas" id="metasActivas">
+        <MetasAhorroActivas 
+          metasAhorro={metasAhorro} 
+          formatearFecha={formatearFecha} 
+        />
+      </SeccionColapsable>
     </div>
   );
 }
