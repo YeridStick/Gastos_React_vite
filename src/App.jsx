@@ -394,10 +394,8 @@ function App() {
           />
 
           {/* Contenido principal */}
-          <main className="flex-1 overflow-y-auto p-4 md:p-6">
+          <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6">
             <div className="mx-auto max-w-7xl">
-              {" "}
-              {/* Contenedor con ancho máximo */}
               {activeTab === "dashboard" && (
                 <Dashboard
                   presupuesto={presupuesto}
@@ -413,17 +411,17 @@ function App() {
                 />
               )}
               {activeTab === "gastos" && (
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-2xl font-semibold text-gray-800">
+                <div className="space-y-4 sm:space-y-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+                    <h2 className="text-xl sm:text-2xl font-semibold text-gray-800">
                       Administra tus gastos
                     </h2>
                     <button
                       onClick={handleNuevoGasto}
-                      className="px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 flex items-center"
+                      className="px-3 py-1.5 sm:px-4 sm:py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 flex items-center justify-center sm:justify-start"
                     >
                       <svg
-                        className="w-5 h-5 mr-2"
+                        className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -482,12 +480,12 @@ function App() {
         </div>
       ) : (
         // Componente de inicio para establecer presupuesto
-        <div className="flex flex-col flex-1 items-center justify-center p-6 bg-gray-50">
-          <div className="w-full max-w-md bg-white rounded-lg shadow-md p-8">
-            <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
+        <div className="flex flex-col flex-1 items-center justify-center p-4 sm:p-6 bg-gray-50">
+          <div className="w-full max-w-md bg-white rounded-lg shadow-md p-5 sm:p-8">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4 sm:mb-6 text-center">
               Bienvenidos
             </h2>
-            <p className="text-gray-600 mb-6 text-center">
+            <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6 text-center">
               Para comenzar, define tu presupuesto inicial
             </p>
 
@@ -503,12 +501,12 @@ function App() {
                 id="presupuesto"
                 value={presupuesto}
                 onChange={(e) => setPresupuesto(Number(e.target.value))}
-                className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="px-3 sm:px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Ingresa tu presupuesto"
               />
 
               {presupuesto < 0 && (
-                <p className="mt-2 text-sm text-red-600">
+                <p className="mt-2 text-xs sm:text-sm text-red-600">
                   El presupuesto debe ser un valor positivo
                 </p>
               )}
@@ -521,7 +519,7 @@ function App() {
                   }
                 }}
                 disabled={presupuesto <= 0}
-                className={`mt-4 px-4 py-2 rounded-md text-white font-medium ${
+                className={`mt-4 px-4 py-2 rounded-md text-white font-medium text-sm sm:text-base ${
                   presupuesto > 0
                     ? "bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                     : "bg-gray-400 cursor-not-allowed"

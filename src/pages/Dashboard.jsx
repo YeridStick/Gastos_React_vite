@@ -17,12 +17,12 @@ import IconoEducacion from "../assets/img/icono_suscripciones.svg";
 const DashboardCard = ({ title, amount, color, icon, trend, percentage }) => {
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden">
-      <div className="p-5">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-medium text-gray-900">{title}</h2>
+      <div className="p-3 sm:p-5">
+        <div className="flex items-center justify-between flex-wrap gap-1">
+          <h2 className="text-base sm:text-lg font-medium text-gray-900">{title}</h2>
           {trend && (
             <span
-              className={`px-2 py-1 text-xs font-medium rounded-full ${
+              className={`px-1.5 py-0.5 text-xs font-medium rounded-full ${
                 trend === "up"
                   ? "bg-green-100 text-green-800"
                   : "bg-rose-100 text-rose-800"
@@ -33,9 +33,9 @@ const DashboardCard = ({ title, amount, color, icon, trend, percentage }) => {
             </span>
           )}
         </div>
-        <div className="mt-4 flex items-center">
-          {icon && <img src={icon} alt={title} className="h-10 w-10 mr-3" />}
-          <span className="text-3xl font-bold text-gray-900">{amount}</span>
+        <div className="mt-2 sm:mt-4 flex items-center">
+          {icon && <img src={icon} alt={title} className="h-8 w-8 sm:h-10 sm:w-10 mr-2 sm:mr-3" />}
+          <span className="text-xl sm:text-3xl font-bold text-gray-900 truncate">{amount}</span>
         </div>
       </div>
     </div>
@@ -251,11 +251,11 @@ export default function Dashboard({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Encabezado del Dashboard con menú de opciones */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center space-x-2">
-          <h2 className="text-2xl font-semibold text-gray-800">Dashboard</h2>
+          <h2 className="text-xl sm:text-2xl font-semibold text-gray-800">Dashboard</h2>
           
           {/* Menú de opciones avanzadas */}
           <div className="relative" ref={menuRef}>
@@ -289,13 +289,13 @@ export default function Dashboard({
           </div>
         </div>
         
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={handleAgregarIngreso}
-            className="px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 flex items-center"
+            className="px-2 py-1 sm:px-3 sm:py-1.5 bg-green-600 text-white text-xs sm:text-sm font-medium rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 flex items-center"
           >
             <svg
-              className="w-4 h-4 mr-1"
+              className="w-3 h-3 sm:w-4 sm:h-4 mr-1"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -310,14 +310,14 @@ export default function Dashboard({
             </svg>
             Agregar Ingreso
           </button>
-          <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+          <span className="px-2 py-0.5 sm:px-3 sm:py-1 bg-blue-100 text-blue-800 rounded-full text-xs sm:text-sm font-medium">
             {obtenerMesActual()}
           </span>
         </div>
       </div>
 
       {/* Tarjetas de información resumida */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-3 sm:gap-6">
         <DashboardCard
           title="Presupuesto Total"
           amount={cantidad(presupuesto)}
@@ -338,13 +338,13 @@ export default function Dashboard({
       </div>
 
       {/* Gráfico de progreso y detalles */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">
+      <div className="grid grid-cols-1 gap-4 sm:gap-6">
+        <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">
+          <h2 className="text-base sm:text-lg font-medium text-gray-900 mb-3 sm:mb-4">
             Progreso del Presupuesto
           </h2>
-          <div className="flex flex-col md:flex-row items-center gap-6">
-            <div className="w-40 h-40">
+          <div className="flex flex-col items-center gap-4 sm:gap-6">
+            <div className="w-32 h-32 sm:w-40 sm:h-40">
               <CircularProgressbar
                 value={porcentaje}
                 text={`${porcentaje}%`}
@@ -355,16 +355,16 @@ export default function Dashboard({
                 })}
               />
             </div>
-            <div className="flex-1">
-              <div className="grid grid-cols-1 gap-4">
+            <div className="w-full">
+              <div className="grid grid-cols-1 gap-3 sm:gap-4">
                 <div>
                   <div className="flex items-center mb-1">
                     <div className="w-3 h-3 rounded-full bg-blue-500 mr-2"></div>
-                    <span className="text-sm font-medium text-gray-700">
+                    <span className="text-xs sm:text-sm font-medium text-gray-700">
                       Presupuesto Total
                     </span>
                   </div>
-                  <p className="ml-5 text-lg font-semibold text-gray-900">
+                  <p className="ml-5 text-base sm:text-lg font-semibold text-gray-900">
                     {cantidad(presupuesto)}
                   </p>
                 </div>
@@ -372,11 +372,11 @@ export default function Dashboard({
                 <div>
                   <div className="flex items-center mb-1">
                     <div className="w-3 h-3 rounded-full bg-green-500 mr-2"></div>
-                    <span className="text-sm font-medium text-gray-700">
+                    <span className="text-xs sm:text-sm font-medium text-gray-700">
                       Disponible
                     </span>
                   </div>
-                  <p className="ml-5 text-lg font-semibold text-gray-900">
+                  <p className="ml-5 text-base sm:text-lg font-semibold text-gray-900">
                     {cantidad(disponible)}
                   </p>
                 </div>
@@ -384,11 +384,11 @@ export default function Dashboard({
                 <div>
                   <div className="flex items-center mb-1">
                     <div className="w-3 h-3 rounded-full bg-red-500 mr-2"></div>
-                    <span className="text-sm font-medium text-gray-700">
+                    <span className="text-xs sm:text-sm font-medium text-gray-700">
                       Gastado
                     </span>
                   </div>
-                  <p className="ml-5 text-lg font-semibold text-gray-900">
+                  <p className="ml-5 text-base sm:text-lg font-semibold text-gray-900">
                     {cantidad(gastado)}
                   </p>
                 </div>
@@ -398,14 +398,14 @@ export default function Dashboard({
         </div>
 
         {/* Gastos por categoría */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-medium text-gray-900">
+        <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <h2 className="text-base sm:text-lg font-medium text-gray-900">
               Gastos por Categoría
             </h2>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             {Object.keys(gastosPorCategoria).length > 0 ? (
               Object.entries(gastosPorCategoria).map(([categoriaId, monto]) => {
                 // Obtener información de la categoría
@@ -423,20 +423,20 @@ export default function Dashboard({
                     key={categoriaId}
                     className="flex items-center justify-between"
                   >
-                    <div className="flex items-center">
+                    <div className="flex items-center min-w-0">
                       <div
-                        className={`w-10 h-10 rounded-full ${
+                        className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full ${
                           info.color?.split(" ")[0] || "bg-blue-100"
-                        } flex items-center justify-center mr-3`}
+                        } flex items-center justify-center mr-2 sm:mr-3 flex-shrink-0`}
                       >
                         <img
                           src={info.icono}
                           alt={info.nombre}
-                          className="w-6 h-6"
+                          className="w-4 h-4 sm:w-6 sm:h-6"
                         />
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">
                           {info.nombre || categoriaId}
                         </p>
                         <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
@@ -447,14 +447,14 @@ export default function Dashboard({
                         </div>
                       </div>
                     </div>
-                    <span className="text-sm font-medium text-gray-900">
+                    <span className="text-xs sm:text-sm font-medium text-gray-900 ml-2 flex-shrink-0">
                       {cantidad(monto)}
                     </span>
                   </div>
                 );
               })
             ) : (
-              <p className="text-gray-500 text-center py-4">
+              <p className="text-gray-500 text-center py-4 text-sm">
                 No hay gastos registrados aún
               </p>
             )}
@@ -464,96 +464,100 @@ export default function Dashboard({
 
       {/* Historial de ingresos extra con botones de acción */}
       {ingresosExtra.length > 0 && (
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-medium text-gray-900">
+        <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <h2 className="text-base sm:text-lg font-medium text-gray-900">
               Ingresos Adicionales
             </h2>
           </div>
 
-          <div className="overflow-x-auto">
-            <div className="align-middle inline-block min-w-full">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Descripción
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Fecha
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Monto
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Acciones
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {ingresosExtra.map((ingreso) => {
-                    // Formatear fecha
-                    const formatoFecha = formatearFecha(ingreso.fecha);
+          <div className="overflow-x-auto -mx-4 sm:mx-0">
+            <div className="inline-block min-w-full align-middle">
+              <div className="overflow-hidden sm:rounded-lg">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th
+                        scope="col"
+                        className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        Descripción
+                      </th>
+                      <th
+                        scope="col"
+                        className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        Fecha
+                      </th>
+                      <th
+                        scope="col"
+                        className="px-3 sm:px-6 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        Monto
+                      </th>
+                      <th
+                        scope="col"
+                        className="px-3 sm:px-6 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        Acciones
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {ingresosExtra.map((ingreso) => {
+                      // Formatear fecha
+                      const formatoFecha = formatearFecha(ingreso.fecha);
 
-                    return (
-                      <tr key={ingreso.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {ingreso.descripcion || "Ingreso adicional"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {formatoFecha}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right text-green-600">
-                          +{cantidad(ingreso.monto)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right">
-                          <div className="flex justify-end space-x-2">
-                            <button
-                              onClick={() => handleEliminarIngreso(ingreso)}
-                              className="text-red-600 hover:text-red-900 transition-colors focus:outline-none"
-                            >
-                              <svg 
-                                className="h-5 w-5" 
-                                fill="none" 
-                                stroke="currentColor" 
-                                viewBox="0 0 24 24"
+                      return (
+                        <tr key={ingreso.id} className="hover:bg-gray-50">
+                          <td className="px-3 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900">
+                            <div className="truncate max-w-32">
+                              {ingreso.descripcion || "Ingreso adicional"}
+                            </div>
+                          </td>
+                          <td className="px-3 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">
+                            {formatoFecha}
+                          </td>
+                          <td className="px-3 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-right text-green-600">
+                            +{cantidad(ingreso.monto)}
+                          </td>
+                          <td className="px-3 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-right">
+                            <div className="flex justify-end">
+                              <button
+                                onClick={() => handleEliminarIngreso(ingreso)}
+                                className="text-red-600 hover:text-red-900 transition-colors focus:outline-none"
                               >
-                                <path 
-                                  strokeLinecap="round" 
-                                  strokeLinejoin="round" 
-                                  strokeWidth="2" 
-                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                />
-                              </svg>
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                                <svg 
+                                  className="h-4 w-4 sm:h-5 sm:w-5" 
+                                  fill="none" 
+                                  stroke="currentColor" 
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path 
+                                    strokeLinecap="round" 
+                                    strokeLinejoin="round" 
+                                    strokeWidth="2" 
+                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                  />
+                                </svg>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
       )}
 
       {/* Actividad Reciente (Gastos e Ingresos) - Versión Adaptativa */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-medium text-gray-900">
+      <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">
+        <div className="flex items-center justify-between mb-3 sm:mb-4">
+          <h2 className="text-base sm:text-lg font-medium text-gray-900">
             Actividad Reciente
           </h2>
           <a
@@ -561,14 +565,14 @@ export default function Dashboard({
             onClick={(e) => {
               e.preventDefault(); /* Navegar a actividad */
             }}
-            className="text-sm font-medium text-blue-600 hover:text-blue-500"
+            className="text-xs sm:text-sm font-medium text-blue-600 hover:text-blue-500"
           >
-            Ver toda la actividad
+            Ver toda
           </a>
         </div>
 
         {actividadReciente.length > 0 ? (
-          <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
+          <div className="grid gap-3 sm:gap-4 grid-cols-1">
             {actividadReciente.map((actividad) => {
               const formatoFecha = formatearFecha(actividad.fecha);
               const esIngreso = actividad.tipo === "ingreso";
@@ -580,14 +584,14 @@ export default function Dashboard({
               return (
                 <div
                   key={`${actividad.tipo}-${actividad.id}`}
-                  className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
+                  className="bg-white border border-gray-200 rounded-lg p-2 sm:p-4 shadow-sm"
                 >
-                  <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="flex flex-wrap items-start justify-between gap-1 sm:gap-2">
                     {/* Tipo e información */}
                     <div className="flex-grow min-w-0">
-                      <div className="flex flex-wrap gap-2 mb-2">
+                      <div className="flex flex-wrap gap-1 sm:gap-2 mb-1 sm:mb-2">
                         <span
-                          className={`px-2 py-1 text-xs font-medium rounded-full ${
+                          className={`px-1.5 py-0.5 text-xs font-medium rounded-full ${
                             esIngreso
                               ? "bg-green-100 text-green-800"
                               : "bg-red-100 text-red-800"
@@ -596,25 +600,27 @@ export default function Dashboard({
                           {esIngreso ? "Ingreso" : "Gasto"}
                         </span>
                         <span
-                          className={`px-2 py-1 text-xs font-medium rounded-full ${categoryColor}`}
+                          className={`px-1.5 py-0.5 text-xs font-medium rounded-full ${categoryColor}`}
                         >
-                          {actividad.categoria}
+                          <span className="block truncate max-w-16 sm:max-w-full">
+                            {actividad.categoria}
+                          </span>
                         </span>
                       </div>
 
-                      <div className="mt-1 font-medium text-gray-900 text-sm">
+                      <div className="mt-1 font-medium text-gray-900 text-xs sm:text-sm truncate">
                         {actividad.nombre}
                       </div>
 
-                      <div className="mt-1 text-xs text-gray-500">
+                      <div className="mt-0.5 text-xs text-gray-500">
                         {formatoFecha}
                       </div>
                     </div>
 
                     {/* Monto */}
-                    <div className="flex-shrink-0 ml-auto text-right">
+                    <div className="flex-shrink-0 text-right">
                       <span
-                        className={`font-medium ${
+                        className={`font-medium text-xs sm:text-sm ${
                           esIngreso ? "text-green-600" : "text-gray-900"
                         }`}
                       >
@@ -628,7 +634,7 @@ export default function Dashboard({
             })}
           </div>
         ) : (
-          <p className="text-gray-500 text-center py-6">
+          <p className="text-gray-500 text-center py-4 text-xs sm:text-sm">
             No hay actividad registrada aún
           </p>
         )}
