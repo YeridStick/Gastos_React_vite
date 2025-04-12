@@ -28,7 +28,7 @@ export default function Header({
     };
   }, []);
 
-  // Generar notificaciones basadas en metas y presupuesto disponible
+  // Generar notificaciones basadas en metas, presupuesto disponible y recordatorios
   useEffect(() => {
     const nuevasNotificaciones = [];
 
@@ -84,11 +84,97 @@ export default function Header({
       }
     });
 
+    // Verificar recordatorios de pago próximos y vencidos
+    try {
+      const recordatoriosGuardados = localStorage.getItem("recordatorios");
+
+      if (recordatoriosGuardados) {
+        const recordatorios = JSON.parse(recordatoriosGuardados);
+        const hoy = Date.now();
+
+        // Filtrar recordatorios pendientes y próximos
+        const recordatoriosProximos = recordatorios.filter(
+          (r) =>
+            r.estado === "pendiente" &&
+            r.fechaVencimiento >= hoy &&
+            (r.fechaVencimiento - hoy) / (1000 * 60 * 60 * 24) <=
+              r.diasAnticipacion
+        );
+
+        // Filtrar recordatorios vencidos
+        const recordatoriosVencidos = recordatorios.filter(
+          (r) =>
+            r.estado === "vencido" ||
+            (r.estado === "pendiente" && r.fechaVencimiento < hoy)
+        );
+
+        // Añadir notificaciones para recordatorios próximos
+        recordatoriosProximos.forEach((recordatorio) => {
+          const diasRestantes = Math.ceil(
+            (recordatorio.fechaVencimiento - hoy) / (1000 * 60 * 60 * 24)
+          );
+
+          nuevasNotificaciones.push({
+            id: `proximo-${recordatorio.id}`,
+            titulo: "Pago próximo",
+            mensaje: `Tu pago de "${recordatorio.titulo}" por ${cantidad(
+              recordatorio.monto
+            )} vence en ${diasRestantes} ${
+              diasRestantes === 1 ? "día" : "días"
+            }.`,
+            tipo: "warning",
+            fecha: Date.now(),
+            link: "recordatorios",
+          });
+        });
+
+        // Añadir notificaciones para recordatorios vencidos
+        recordatoriosVencidos.forEach((recordatorio) => {
+          const diasVencidos = Math.abs(
+            Math.floor(
+              (recordatorio.fechaVencimiento - hoy) / (1000 * 60 * 60 * 24)
+            )
+          );
+
+          nuevasNotificaciones.push({
+            id: `vencido-${recordatorio.id}`,
+            titulo: "Pago vencido",
+            mensaje: `Tu pago de "${recordatorio.titulo}" por ${cantidad(
+              recordatorio.monto
+            )} está vencido por ${diasVencidos} ${
+              diasVencidos === 1 ? "día" : "días"
+            }.`,
+            tipo: "danger",
+            fecha: Date.now(),
+            link: "recordatorios",
+          });
+        });
+      }
+    } catch (error) {
+      console.error(
+        "Error al cargar recordatorios para notificaciones:",
+        error
+      );
+    }
+
     // Actualizar notificaciones
     if (nuevasNotificaciones.length > 0) {
       setNotificaciones(nuevasNotificaciones);
     }
   }, [metas, disponibleMensual]);
+
+  // Manejar clic en notificación
+  const handleNotificationClick = (notificacion) => {
+    // Si la notificación tiene un link, navegar a esa sección
+    if (notificacion.link) {
+      // Aquí puedes implementar la navegación a la sección correspondiente
+      // Por ejemplo, usando React Router o cambiando el estado en el componente principal
+      //console.log(`Navegar a: ${notificacion.link}`);
+
+      // Cierra el panel de notificaciones
+      setShowNotifications(false);
+    }
+  };
 
   return (
     <header className="bg-white shadow-sm z-10">
@@ -194,7 +280,13 @@ export default function Header({
                       {notificaciones.map((notificacion) => (
                         <div
                           key={notificacion.id}
-                          className="px-3 sm:px-4 py-2 sm:py-3 hover:bg-gray-50"
+                          className={`px-3 sm:px-4 py-2 sm:py-3 hover:bg-gray-50 ${
+                            notificacion.link ? "cursor-pointer" : ""
+                          }`}
+                          onClick={() =>
+                            notificacion.link &&
+                            handleNotificationClick(notificacion)
+                          }
                         >
                           <div className="flex items-start">
                             <div

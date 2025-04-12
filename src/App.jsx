@@ -15,6 +15,7 @@ import Categorias from "./pages/gastos/NuevaCategoria";
 import Reportes from "./pages/Reportes";
 import MetasAhorro from "./pages/MetasAhorro";
 import GestionAhorro from "./pages/GestionAhorro";
+import Recordatorios from "./pages/Recordatorios";
 
 // Funciones
 import { generarID } from "./helpers/index";
@@ -294,7 +295,7 @@ function App() {
         // Verificar si es un gasto de ahorro
         const esGastoAhorro = gastos.categoria === "Ahorro";
         let nombreMeta = null;
-        
+
         // Si es un gasto de ahorro, extraer el nombre de la meta
         if (esGastoAhorro) {
           const nombreMetaMatch = gastos.nombreG.match(/Ahorro: (.*)/);
@@ -302,44 +303,51 @@ function App() {
             nombreMeta = nombreMetaMatch[1];
           }
         }
-        
+
         const gastosActualizados = gastosState.filter(
           (item) => item.id !== gastos.id
         );
         setGastosState(gastosActualizados);
-        
+
         // Si era un gasto de ahorro, actualizar la meta correspondiente
         if (esGastoAhorro && nombreMeta) {
           // Obtener las metas de ahorro actuales
-          const metasAhorroActuales = JSON.parse(localStorage.getItem('MetasAhorro')) || [];
-          
+          const metasAhorroActuales =
+            JSON.parse(localStorage.getItem("MetasAhorro")) || [];
+
           // Buscar la meta correspondiente
-          const metasActualizadas = metasAhorroActuales.map(meta => {
+          const metasActualizadas = metasAhorroActuales.map((meta) => {
             if (meta.nombre === nombreMeta) {
               // Recalcular el ahorro acumulado basado en los gastos restantes
               const gastosRelacionados = gastosActualizados.filter(
-                gasto => gasto.categoria === "Ahorro" && gasto.nombreG === `Ahorro: ${nombreMeta}`
+                (gasto) =>
+                  gasto.categoria === "Ahorro" &&
+                  gasto.nombreG === `Ahorro: ${nombreMeta}`
               );
-              
+
               const nuevoAhorroAcumulado = gastosRelacionados.reduce(
-                (total, gasto) => total + gasto.gasto, 0
+                (total, gasto) => total + gasto.gasto,
+                0
               );
-              
+
               const completada = nuevoAhorroAcumulado >= meta.monto;
-              
+
               return {
                 ...meta,
                 ahorroAcumulado: completada ? meta.monto : nuevoAhorroAcumulado,
-                completada
+                completada,
               };
             }
             return meta;
           });
-          
+
           // Guardar las metas actualizadas en localStorage
-          localStorage.setItem('MetasAhorro', JSON.stringify(metasActualizadas));
+          localStorage.setItem(
+            "MetasAhorro",
+            JSON.stringify(metasActualizadas)
+          );
         }
-  
+
         Swal.fire({
           title: "Gasto eliminado",
           icon: "success",
@@ -373,7 +381,7 @@ function App() {
   }, [filtros, gastosState]);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
+    <div className="h-screen overflow-y-auto bg-gray-50 flex flex-col font-sans">
       {/* Barra superior */}
       <Header
         setIsSidebarOpen={setIsSidebarOpen}
@@ -475,8 +483,15 @@ function App() {
                   ingresosExtra={ingresosExtra}
                 />
               )}
+              {activeTab === "recordatorios" && (
+                <Recordatorios
+                  guardarGastos={guardarGastos}
+                  gastosState={gastosState}
+                  setGastosState={setGastosState}
+                />
+              )}
             </div>
-          </main>          
+          </main>
         </div>
       ) : (
         // Componente de inicio para establecer presupuesto

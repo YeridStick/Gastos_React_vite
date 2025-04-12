@@ -181,61 +181,6 @@ export default function MetasAhorro({ presupuesto, gastosState, ingresosExtra = 
     });
   };
   
-  // Agregar ahorro a meta
-  const handleAgregarAhorro = (metaId) => {
-    // Buscar la meta
-    const metaSeleccionada = metas.find(meta => meta.id === metaId);
-    
-    if (!metaSeleccionada) return;
-    
-    Swal.fire({
-      title: 'Registrar ahorro',
-      input: 'number',
-      inputLabel: `¿Cuánto deseas ahorrar para "${metaSeleccionada.nombre}"?`,
-      inputPlaceholder: 'Ingresa la cantidad',
-      showCancelButton: true,
-      confirmButtonText: 'Guardar',
-      cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#3b82f6',
-      inputValidator: (value) => {
-        if (!value) {
-          return 'Debes ingresar una cantidad';
-        }
-        if (Number(value) <= 0) {
-          return 'La cantidad debe ser mayor a 0';
-        }
-      }
-    }).then((result) => {
-      if (result.isConfirmed) {
-        const cantidad = Number(result.value);
-        
-        // Actualizar ahorro acumulado
-        const metasActualizadas = metas.map(meta => {
-          if (meta.id === metaId) {
-            const nuevoAcumulado = meta.ahorroAcumulado + cantidad;
-            const completada = nuevoAcumulado >= meta.monto;
-            
-            return {
-              ...meta,
-              ahorroAcumulado: nuevoAcumulado,
-              completada
-            };
-          }
-          return meta;
-        });
-        
-        setMetas(metasActualizadas);
-        
-        Swal.fire({
-          title: 'Ahorro registrado',
-          icon: 'success',
-          timer: 1500,
-          showConfirmButton: false
-        });
-      }
-    });
-  };
-  
   // Formatear fecha
   const formatearFecha = (fechaString) => {
     const fecha = new Date(fechaString);
@@ -476,14 +421,6 @@ export default function MetasAhorro({ presupuesto, gastosState, ingresosExtra = 
                             </svg>
                           </button>
                         </div>
-                        
-                        <button
-                          onClick={() => handleAgregarAhorro(meta.id)}
-                          className="px-2 py-1 sm:px-3 sm:py-1 bg-green-100 text-green-800 rounded text-xs sm:text-sm font-medium hover:bg-green-200 truncate"
-                          disabled={meta.completada}
-                        >
-                          {meta.completada ? 'Completada' : 'Registrar Ahorro'}
-                        </button>
                       </div>
                     </div>
                   </div>
