@@ -19,20 +19,19 @@ export default function GestionAhorro({ presupuesto, gastosState, ingresosExtra 
       setMetasAhorro(metasAhorroLS);
     };
     
-    const calcularAhorroDisponible = () => {      
-      // Calcular el total de gastos
-      const totalGastos = gastosState.reduce((total, gasto) => total + gasto.gasto, 0);
-          
-      // Disponible = Presupuesto - Total de gastos
-      const disponible = presupuesto - totalGastos;
-      
-      // Solo guardar como disponible si es positivo
-      setAhorroDisponible(disponible > 0 ? disponible : 0);
-    };
-    
     obtenerMetasAhorro();
-    calcularAhorroDisponible();
-  }, [presupuesto, gastosState, ingresosExtra]); // Incluir todas las dependencias
+
+    // Sincronizar metas de ahorro con gastos existentes
+    // Ejecutamos esto después de cargar las metas
+    setTimeout(() => {
+      sincronizarMetasConGastos();
+    }, 100);
+  }, [presupuesto, gastosState, ingresosExtra]);
+
+  const calcularAhorroDisponible = () => {
+    const totalGastos = gastosState.reduce((total, gasto) => total + gasto.gasto, 0);
+    setAhorroDisponible(Math.max(0, presupuesto - totalGastos));
+  };
   
   // Función para crear un nuevo gasto de ahorro
   const crearGastoAhorro = (monto, nombreMeta) => {
@@ -257,31 +256,8 @@ export default function GestionAhorro({ presupuesto, gastosState, ingresosExtra 
     }
   };
 
-  useEffect(() => {
-    const obtenerMetasAhorro = () => {
-      const metasAhorroLS = JSON.parse(localStorage.getItem('MetasAhorro')) || [];
-      setMetasAhorro(metasAhorroLS);
-    };
-    
-    const calcularAhorroDisponible = () => {      
-      // Calcular el total de gastos
-      const totalGastos = gastosState.reduce((total, gasto) => total + gasto.gasto, 0);
-          
-      // Disponible = Presupuesto - Total de gastos
-      const disponible = presupuesto - totalGastos;
-      
-      // Solo guardar como disponible si es positivo
-      setAhorroDisponible(disponible > 0 ? disponible : 0);
-    };
-    
-    obtenerMetasAhorro();
-    calcularAhorroDisponible();
-    
-    // Sincronizar metas de ahorro con gastos existentes
-    // Ejecutamos esto después de cargar las metas
-    setTimeout(() => {
-      sincronizarMetasConGastos();
-    }, 100);
+  useEffect(() => {    
+    calcularAhorroDisponible();    
     
   }, [presupuesto, gastosState, ingresosExtra]); // Incluir todas las dependencias
 
