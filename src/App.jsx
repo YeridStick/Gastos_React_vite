@@ -1,9 +1,17 @@
 import { useEffect, useState } from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
 import Swal from "sweetalert2";
 
 // Componentes
 import Header from "./components/Header";
 import Sidebar from "./components/Sidebar.jsx";
+import AuthPages from "./pages/AuthPages";
+import Welcome from "./pages/Welcome.jsx";
 
 import Dashboard from "./pages/Dashboard";
 import Modal from "./components/Modal/General/Modal";
@@ -17,10 +25,25 @@ import MetasAhorro from "./pages/MetasAhorro";
 import GestionAhorro from "./pages/GestionAhorro";
 import Recordatorios from "./pages/Recordatorios";
 
+// Servicios
+import {
+  syncDataToServer,
+  syncDataFromServer,
+  setupSyncObserver,
+  setupPeriodicSync,
+  handleLogout,
+  resolveSessionConflict,
+  setupSessionConflictDetection,
+} from "./services/syncService";
+
 // Funciones
 import { generarID } from "./helpers/index";
+import DataManagement from "./pages/DataManagement.jsx";
 
 function App() {
+  // Estado de autenticación
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
   // Estados principales
   const [presupuesto, setPresupuesto] = useState(
     JSON.parse(localStorage.getItem("PresupuestoLS")) ?? ""
@@ -48,6 +71,43 @@ function App() {
   const [filtros, setFiltros] = useState("");
   const [gastosFiltrados, setGastosFiltrados] = useState([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    const cleanupConflictDetection = setupSessionConflictDetection();
+
+    return () => {
+      cleanupConflictDetection();
+    };
+  }, []);
+
+  // Verificar autenticación al cargar
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const userEmail = localStorage.getItem("userEmail");
+
+    if (token && userEmail) {
+      setIsAuthenticated(true);
+
+      // Configurar sincronización automática con el servicio mejorado
+      setupSyncObserver();
+
+      // Sincronización periódica cada 5 minutos
+      const syncInterval = setupPeriodicSync(5);
+
+      // Sincronizar datos completos desde el servidor al iniciar (forzar full sync)
+      syncDataFromServer(true);
+
+      console.log("Configuración de sincronización inicializada en App.js");
+
+      // Limpiar recursos de sincronización al desmontar
+      return () => {
+        if (syncInterval) {
+          clearInterval(syncInterval);
+        }
+        console.log("Recursos de sincronización liberados");
+      };
+    }
+  }, []);
 
   // Calcular disponible mensual para ahorro
   useEffect(() => {
@@ -101,6 +161,48 @@ function App() {
     }
   }, []);
 
+  // Función para manejar el éxito del inicio de sesión
+  const handleLoginSuccess = (data) => {
+    setIsAuthenticated(true);
+
+    // Cargar estados desde localStorage después de la sincronización
+    // Ahora los estados se actualizan desde el localStorage que ya ha sido sincronizado
+    setPresupuesto(JSON.parse(localStorage.getItem("PresupuestoLS")) ?? "");
+    setIsValid(JSON.parse(localStorage.getItem("ValidLS")) ?? false);
+    setGastosState(JSON.parse(localStorage.getItem("ObjetosGastos")) ?? []);
+    setIngresosExtra(JSON.parse(localStorage.getItem("IngresosExtra")) ?? []);
+    setMetas(JSON.parse(localStorage.getItem("MetasAhorro")) ?? []);
+
+    // Actualizar el activeTab para mostrar la sección correcta
+    setActiveTab("dashboard");
+
+    // No necesitamos configurar la sincronización aquí, ya que se hace en AuthPages.jsx
+    console.log("Estados actualizados después de inicio de sesión exitoso");
+  };
+
+  // Función para manejar el cierre de sesión
+  const logoutUser = async () => {
+    try {
+      await handleLogout();
+      setIsAuthenticated(false);
+      console.log("Sesión cerrada correctamente");
+      Swal.fire({
+        title: "Sesión cerrada",
+        text: "sesión cerrada correctamente",
+        icon: "success",
+        confirmButtonColor: "#3b82f6",
+      });
+    } catch (error) {
+      console.error("Error al cerrar sesión:", error);
+      Swal.fire({
+        title: "Error",
+        text: "Hubo un problema al cerrar la sesión",
+        icon: "error",
+        confirmButtonColor: "#3b82f6",
+      });
+    }
+  };
+
   const handleNuevoGasto = () => {
     setModal(true);
     setGastoEditar({});
@@ -129,7 +231,16 @@ function App() {
         setGastoEditar({}),
         setIngresosExtra([]),
         setMetas([]),
-        localStorage.clear());
+        localStorage.removeItem("ObjetosGastos"),
+        localStorage.removeItem("PresupuestoLS"),
+        localStorage.removeItem("ValidLS"),
+        localStorage.removeItem("IngresosExtra"),
+        localStorage.removeItem("MetasAhorro"),
+        localStorage.removeItem("categorias"),
+        localStorage.removeItem("recordatorios"));
+
+      // Sincronizar con servidor para reflejar los cambios
+      syncDataToServer();
     });
   };
 
@@ -176,6 +287,8 @@ function App() {
     }
     setModal(false);
     setGastoEditar({});
+
+    // La sincronización automática ocurrirá debido al observer de localStorage
   };
 
   // Nueva función para agregar ingresos extras
@@ -209,6 +322,8 @@ function App() {
         popup: "rounded-lg",
       },
     });
+
+    // La sincronización automática ocurrirá debido al observer de localStorage
   };
 
   // Función para editar un ingreso extra
@@ -230,6 +345,8 @@ function App() {
         popup: "rounded-lg",
       },
     });
+
+    // La sincronización automática ocurrirá debido al observer de localStorage
   };
 
   // Función para eliminar un ingreso extra
@@ -251,6 +368,8 @@ function App() {
       );
       setIngresosExtra(ingresosActualizados);
     }
+
+    // La sincronización automática ocurrirá debido al observer de localStorage
   };
 
   // Función para actualizar directamente el presupuesto total
@@ -269,6 +388,24 @@ function App() {
 
     // Actualizar el presupuesto
     setPresupuesto(nuevoPresupuesto);
+
+    // La sincronización automática ocurrirá debido al observer de localStorage
+  };
+
+  const guardarEliminados = (tipo, id) => {
+    // Obtener los datos actuales de "eliminados" en localStorage
+    const eliminados = JSON.parse(localStorage.getItem("eliminados")) || {};
+
+    // Si no existe el tipo, inicializarlo como un array vacío
+    if (!eliminados[tipo]) {
+      eliminados[tipo] = [];
+    }
+
+    // Agregar el ID al array correspondiente
+    eliminados[tipo].push(id);
+
+    // Guardar los datos actualizados en localStorage
+    localStorage.setItem("eliminados", JSON.stringify(eliminados));
   };
 
   const editar = (gastos) => {
@@ -292,61 +429,14 @@ function App() {
       },
     }).then((result) => {
       if (result.isConfirmed) {
-        // Verificar si es un gasto de ahorro
-        const esGastoAhorro = gastos.categoria === "Ahorro";
-        let nombreMeta = null;
+        // Guardar el ID del gasto eliminado
+        guardarEliminados("ObjetosGastos", gastos.id);
 
-        // Si es un gasto de ahorro, extraer el nombre de la meta
-        if (esGastoAhorro) {
-          const nombreMetaMatch = gastos.nombreG.match(/Ahorro: (.*)/);
-          if (nombreMetaMatch && nombreMetaMatch[1]) {
-            nombreMeta = nombreMetaMatch[1];
-          }
-        }
-
+        // Actualizar el estado de los gastos
         const gastosActualizados = gastosState.filter(
           (item) => item.id !== gastos.id
         );
         setGastosState(gastosActualizados);
-
-        // Si era un gasto de ahorro, actualizar la meta correspondiente
-        if (esGastoAhorro && nombreMeta) {
-          // Obtener las metas de ahorro actuales
-          const metasAhorroActuales =
-            JSON.parse(localStorage.getItem("MetasAhorro")) || [];
-
-          // Buscar la meta correspondiente
-          const metasActualizadas = metasAhorroActuales.map((meta) => {
-            if (meta.nombre === nombreMeta) {
-              // Recalcular el ahorro acumulado basado en los gastos restantes
-              const gastosRelacionados = gastosActualizados.filter(
-                (gasto) =>
-                  gasto.categoria === "Ahorro" &&
-                  gasto.nombreG === `Ahorro: ${nombreMeta}`
-              );
-
-              const nuevoAhorroAcumulado = gastosRelacionados.reduce(
-                (total, gasto) => total + gasto.gasto,
-                0
-              );
-
-              const completada = nuevoAhorroAcumulado >= meta.monto;
-
-              return {
-                ...meta,
-                ahorroAcumulado: completada ? meta.monto : nuevoAhorroAcumulado,
-                completada,
-              };
-            }
-            return meta;
-          });
-
-          // Guardar las metas actualizadas en localStorage
-          localStorage.setItem(
-            "MetasAhorro",
-            JSON.stringify(metasActualizadas)
-          );
-        }
 
         Swal.fire({
           title: "Gasto eliminado",
@@ -358,6 +448,8 @@ function App() {
             popup: "rounded-lg",
           },
         });
+
+        // La sincronización automática ocurrirá debido al observer de localStorage
       }
     });
   };
@@ -380,198 +472,457 @@ function App() {
     }
   }, [filtros, gastosState]);
 
+  // Renderización condicional basada en rutas
   return (
-    <div className="h-screen overflow-y-auto bg-gray-50 flex flex-col font-sans">
-      {/* Barra superior */}
-      <Header
-        setIsSidebarOpen={setIsSidebarOpen}
-        isSidebarOpen={isSidebarOpen}
-        metas={metas}
-        disponibleMensual={disponibleMensual}
-      />
+    <Router>
+      <Routes>
+        {/* Ruta de bienvenida (nueva página inicial) */}
+        <Route path="/" element={<Welcome />} />
 
-      {isValid ? (
-        <div className="flex flex-1 overflow-hidden">
-          {/* Sidebar para navegación */}
-          <Sidebar
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            isSidebarOpen={isSidebarOpen}
-            setIsSidebarOpen={setIsSidebarOpen}
-            deletePresupuesto={deletePresupuesto}
-          />
+        {/* Rutas de autenticación */}
+        <Route
+          path="/login"
+          element={
+            isAuthenticated ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <AuthPages onLoginSuccess={handleLoginSuccess} />
+            )
+          }
+        />
 
-          {/* Contenido principal */}
-          <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6">
-            <div className="mx-auto max-w-7xl">
-              {activeTab === "dashboard" && (
-                <Dashboard
-                  presupuesto={presupuesto}
-                  setPresupuesto={setPresupuesto}
-                  gastosState={gastosState}
-                  actualizarPresupuesto={actualizarPresupuesto}
-                  ingresosExtra={ingresosExtra}
-                  editarIngreso={editarIngreso}
-                  eliminarIngreso={eliminarIngreso}
+        <Route
+          path="/register"
+          element={
+            isAuthenticated ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <AuthPages onLoginSuccess={handleLoginSuccess} />
+            )
+          }
+        />
+
+        {/* Dashboard y otras rutas - Ya no requieren autenticación */}
+        <Route
+          path="/dashboard"
+          element={
+            <div className="h-screen overflow-y-auto bg-gray-50 flex flex-col font-sans">
+              <Header
+                setIsSidebarOpen={setIsSidebarOpen}
+                isSidebarOpen={isSidebarOpen}
+                metas={metas}
+                disponibleMensual={disponibleMensual}
+                isAuthenticated={isAuthenticated}
+                onLogout={logoutUser}
+              />
+
+              {isValid ? (
+                <div className="flex flex-1 overflow-hidden">
+                  <Sidebar
+                    activeTab={activeTab}
+                    setActiveTab={setActiveTab}
+                    isSidebarOpen={isSidebarOpen}
+                    setIsSidebarOpen={setIsSidebarOpen}
+                    deletePresupuesto={deletePresupuesto}
+                    isAuthenticated={isAuthenticated} // Añadir esta prop
+                  />
+
+                  <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6">
+                    <div className="mx-auto max-w-7xl">
+                      <Dashboard
+                        presupuesto={presupuesto}
+                        setPresupuesto={setPresupuesto}
+                        gastosState={gastosState}
+                        actualizarPresupuesto={actualizarPresupuesto}
+                        ingresosExtra={ingresosExtra}
+                        editarIngreso={editarIngreso}
+                        eliminarIngreso={eliminarIngreso}
+                        setModalIngreso={setModalIngreso}
+                        setModalEditar={setModalEditar}
+                        actualizarPresupuestoTotal={actualizarPresupuestoTotal}
+                      />
+                    </div>
+                  </main>
+                </div>
+              ) : (
+                <div className="flex flex-col flex-1 items-center justify-center p-4 sm:p-6 bg-gray-50">
+                  <div className="w-full max-w-md bg-white rounded-lg shadow-md p-5 sm:p-8">
+                    <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4 sm:mb-6 text-center">
+                      Bienvenidos
+                    </h2>
+                    <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6 text-center">
+                      Para comenzar, define tu presupuesto inicial
+                    </p>
+
+                    <div className="flex flex-col">
+                      <label
+                        htmlFor="presupuesto"
+                        className="text-sm font-medium text-gray-700 mb-1"
+                      >
+                        Presupuesto inicial
+                      </label>
+                      <input
+                        type="number"
+                        id="presupuesto"
+                        value={presupuesto}
+                        onChange={(e) => setPresupuesto(Number(e.target.value))}
+                        className="px-3 sm:px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Ingresa tu presupuesto"
+                      />
+
+                      {presupuesto < 0 && (
+                        <p className="mt-2 text-xs sm:text-sm text-red-600">
+                          El presupuesto debe ser un valor positivo
+                        </p>
+                      )}
+
+                      <button
+                        onClick={() => {
+                          if (presupuesto > 0) {
+                            setIsValid(true);
+                            setActiveTab("dashboard");
+                          }
+                        }}
+                        disabled={presupuesto <= 0}
+                        className={`mt-4 px-4 py-2 rounded-md text-white font-medium text-sm sm:text-base ${
+                          presupuesto > 0
+                            ? "bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                            : "bg-gray-400 cursor-not-allowed"
+                        }`}
+                      >
+                        Comenzar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Modales */}
+              {modal && (
+                <Modal
+                  gastoEditar={gastoEditar}
+                  setGastoEditar={setGastoEditar}
+                  setModal={setModal}
+                  guardarGastos={guardarGastos}
+                />
+              )}
+
+              {modalIngreso && (
+                <ModalIngresoExtra
                   setModalIngreso={setModalIngreso}
+                  actualizarPresupuesto={actualizarPresupuesto}
+                />
+              )}
+
+              {modalEditar && (
+                <ModalEditarPresupuesto
                   setModalEditar={setModalEditar}
+                  presupuestoActual={presupuesto}
                   actualizarPresupuestoTotal={actualizarPresupuestoTotal}
                 />
               )}
-              {activeTab === "gastos" && (
-                <div className="space-y-4 sm:space-y-6">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
-                    <h2 className="text-xl sm:text-2xl font-semibold text-gray-800">
-                      Administra tus gastos
-                    </h2>
-                    <button
-                      onClick={handleNuevoGasto}
-                      className="px-3 py-1.5 sm:px-4 sm:py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 flex items-center justify-center sm:justify-start"
-                    >
-                      <svg
-                        className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                        ></path>
-                      </svg>
-                      Nuevo Gasto
-                    </button>
-                  </div>
-
-                  <Filtros filtros={filtros} setFiltros={setFiltros} />
-
-                  <ListadoGastos
-                    gastosState={gastosState}
-                    editar={editar}
-                    eliminar={eliminar}
-                    gastosFiltrados={gastosFiltrados}
-                    filtros={filtros}
-                  />
-                </div>
-              )}
-              {activeTab === "categorias" && (
-                <Categorias gastosState={gastosState} />
-              )}
-              {activeTab === "metas" && (
-                <MetasAhorro
-                  presupuesto={presupuesto}
-                  gastosState={gastosState}
-                  ingresosExtra={ingresosExtra}
-                />
-              )}
-              {activeTab === "gestionAhorro" && (
-                <GestionAhorro
-                  presupuesto={presupuesto}
-                  gastosState={gastosState}
-                  ingresosExtra={ingresosExtra}
-                  setGastosState={setGastosState}
-                  setIngresosExtra={setIngresosExtra}
-                />
-              )}
-              {activeTab === "reportes" && (
-                <Reportes
-                  gastosState={gastosState}
-                  presupuesto={presupuesto}
-                  ingresosExtra={ingresosExtra}
-                />
-              )}
-              {activeTab === "recordatorios" && (
-                <Recordatorios
-                  guardarGastos={guardarGastos}
-                  gastosState={gastosState}
-                  setGastosState={setGastosState}
-                />
-              )}
             </div>
-          </main>
-        </div>
-      ) : (
-        // Componente de inicio para establecer presupuesto
-        <div className="flex flex-col flex-1 items-center justify-center p-4 sm:p-6 bg-gray-50">
-          <div className="w-full max-w-md bg-white rounded-lg shadow-md p-5 sm:p-8">
-            <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4 sm:mb-6 text-center">
-              Bienvenidos
-            </h2>
-            <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6 text-center">
-              Para comenzar, define tu presupuesto inicial
-            </p>
+          }
+        />
 
-            <div className="flex flex-col">
-              <label
-                htmlFor="presupuesto"
-                className="text-sm font-medium text-gray-700 mb-1"
-              >
-                Presupuesto inicial
-              </label>
-              <input
-                type="number"
-                id="presupuesto"
-                value={presupuesto}
-                onChange={(e) => setPresupuesto(Number(e.target.value))}
-                className="px-3 sm:px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Ingresa tu presupuesto"
+        {/* Las demás rutas permanecen iguales, pero ya no necesitan ProtectedRoute */}
+        <Route
+          path="/gastos"
+          element={
+            <div className="h-screen overflow-y-auto bg-gray-50 flex flex-col font-sans">
+              <Header
+                setIsSidebarOpen={setIsSidebarOpen}
+                isSidebarOpen={isSidebarOpen}
+                metas={metas}
+                disponibleMensual={disponibleMensual}
+                isAuthenticated={isAuthenticated}
+                onLogout={logoutUser}
               />
 
-              {presupuesto < 0 && (
-                <p className="mt-2 text-xs sm:text-sm text-red-600">
-                  El presupuesto debe ser un valor positivo
-                </p>
+              <div className="flex flex-1 overflow-hidden">
+                <Sidebar
+                  activeTab="gastos"
+                  setActiveTab={setActiveTab}
+                  isSidebarOpen={isSidebarOpen}
+                  setIsSidebarOpen={setIsSidebarOpen}
+                  deletePresupuesto={deletePresupuesto}
+                />
+
+                <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6">
+                  <div className="mx-auto max-w-7xl">
+                    <div className="space-y-4 sm:space-y-6">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+                        <h2 className="text-xl sm:text-2xl font-semibold text-gray-800">
+                          Administra tus gastos
+                        </h2>
+                        <button
+                          onClick={handleNuevoGasto}
+                          className="px-3 py-1.5 sm:px-4 sm:py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 flex items-center justify-center sm:justify-start"
+                        >
+                          <svg
+                            className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                            ></path>
+                          </svg>
+                          Nuevo Gasto
+                        </button>
+                      </div>
+
+                      <Filtros filtros={filtros} setFiltros={setFiltros} />
+
+                      <ListadoGastos
+                        gastosState={gastosState}
+                        editar={editar}
+                        eliminar={eliminar}
+                        gastosFiltrados={gastosFiltrados}
+                        filtros={filtros}
+                      />
+                    </div>
+                  </div>
+                </main>
+              </div>
+
+              {/* Modales */}
+              {modal && (
+                <Modal
+                  gastoEditar={gastoEditar}
+                  setGastoEditar={setGastoEditar}
+                  setModal={setModal}
+                  guardarGastos={guardarGastos}
+                />
               )}
-
-              <button
-                onClick={() => {
-                  if (presupuesto > 0) {
-                    setIsValid(true);
-                    setActiveTab("dashboard");
-                  }
-                }}
-                disabled={presupuesto <= 0}
-                className={`mt-4 px-4 py-2 rounded-md text-white font-medium text-sm sm:text-base ${
-                  presupuesto > 0
-                    ? "bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                    : "bg-gray-400 cursor-not-allowed"
-                }`}
-              >
-                Comenzar
-              </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modales */}
-      {modal && (
-        <Modal
-          gastoEditar={gastoEditar}
-          setGastoEditar={setGastoEditar}
-          setModal={setModal}
-          guardarGastos={guardarGastos}
+          }
         />
-      )}
 
-      {modalIngreso && (
-        <ModalIngresoExtra
-          setModalIngreso={setModalIngreso}
-          actualizarPresupuesto={actualizarPresupuesto}
-        />
-      )}
+        {/* Ruta para Categorías */}
+        <Route
+          path="/categorias"
+          element={
+            <div className="h-screen overflow-y-auto bg-gray-50 flex flex-col font-sans">
+              <Header
+                setIsSidebarOpen={setIsSidebarOpen}
+                isSidebarOpen={isSidebarOpen}
+                metas={metas}
+                disponibleMensual={disponibleMensual}
+                isAuthenticated={isAuthenticated}
+                onLogout={logoutUser}
+              />
 
-      {modalEditar && (
-        <ModalEditarPresupuesto
-          setModalEditar={setModalEditar}
-          presupuestoActual={presupuesto}
-          actualizarPresupuestoTotal={actualizarPresupuestoTotal}
+              <div className="flex flex-1 overflow-hidden">
+                <Sidebar
+                  activeTab="categorias"
+                  setActiveTab={setActiveTab}
+                  isSidebarOpen={isSidebarOpen}
+                  setIsSidebarOpen={setIsSidebarOpen}
+                  deletePresupuesto={deletePresupuesto}
+                />
+
+                <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6">
+                  <div className="mx-auto max-w-7xl">
+                    <Categorias gastosState={gastosState} />
+                  </div>
+                </main>
+              </div>
+            </div>
+          }
         />
-      )}
-    </div>
+
+        {/* Ruta para Reportes */}
+        <Route
+          path="/reportes"
+          element={
+            <div className="h-screen overflow-y-auto bg-gray-50 flex flex-col font-sans">
+              <Header
+                setIsSidebarOpen={setIsSidebarOpen}
+                isSidebarOpen={isSidebarOpen}
+                metas={metas}
+                disponibleMensual={disponibleMensual}
+                isAuthenticated={isAuthenticated}
+                onLogout={logoutUser}
+              />
+
+              <div className="flex flex-1 overflow-hidden">
+                <Sidebar
+                  activeTab="reportes"
+                  setActiveTab={setActiveTab}
+                  isSidebarOpen={isSidebarOpen}
+                  setIsSidebarOpen={setIsSidebarOpen}
+                  deletePresupuesto={deletePresupuesto}
+                />
+
+                <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6">
+                  <div className="mx-auto max-w-7xl">
+                    <Reportes
+                      gastosState={gastosState}
+                      presupuesto={presupuesto}
+                      ingresosExtra={ingresosExtra}
+                    />
+                  </div>
+                </main>
+              </div>
+            </div>
+          }
+        />
+
+        {/* Ruta para Metas de Ahorro */}
+        <Route
+          path="/metas"
+          element={
+            <div className="h-screen overflow-y-auto bg-gray-50 flex flex-col font-sans">
+              <Header
+                setIsSidebarOpen={setIsSidebarOpen}
+                isSidebarOpen={isSidebarOpen}
+                metas={metas}
+                disponibleMensual={disponibleMensual}
+                isAuthenticated={isAuthenticated}
+                onLogout={logoutUser}
+              />
+
+              <div className="flex flex-1 overflow-hidden">
+                <Sidebar
+                  activeTab="metas"
+                  setActiveTab={setActiveTab}
+                  isSidebarOpen={isSidebarOpen}
+                  setIsSidebarOpen={setIsSidebarOpen}
+                  deletePresupuesto={deletePresupuesto}
+                />
+
+                <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6">
+                  <div className="mx-auto max-w-7xl">
+                    <MetasAhorro
+                      presupuesto={presupuesto}
+                      gastosState={gastosState}
+                      ingresosExtra={ingresosExtra}
+                    />
+                  </div>
+                </main>
+              </div>
+            </div>
+          }
+        />
+
+        {/* Ruta para Gestión de Ahorro */}
+        <Route
+          path="/gestion-ahorro"
+          element={
+            <div className="h-screen overflow-y-auto bg-gray-50 flex flex-col font-sans">
+              <Header
+                setIsSidebarOpen={setIsSidebarOpen}
+                isSidebarOpen={isSidebarOpen}
+                metas={metas}
+                disponibleMensual={disponibleMensual}
+                isAuthenticated={isAuthenticated}
+                onLogout={logoutUser}
+              />
+
+              <div className="flex flex-1 overflow-hidden">
+                <Sidebar
+                  activeTab="gestionAhorro"
+                  setActiveTab={setActiveTab}
+                  isSidebarOpen={isSidebarOpen}
+                  setIsSidebarOpen={setIsSidebarOpen}
+                  deletePresupuesto={deletePresupuesto}
+                />
+
+                <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6">
+                  <div className="mx-auto max-w-7xl">
+                    <GestionAhorro
+                      presupuesto={presupuesto}
+                      gastosState={gastosState}
+                      ingresosExtra={ingresosExtra}
+                      setGastosState={setGastosState}
+                      setIngresosExtra={setIngresosExtra}
+                    />
+                  </div>
+                </main>
+              </div>
+            </div>
+          }
+        />
+
+        {/* Ruta para Recordatorios */}
+        <Route
+          path="/recordatorios"
+          element={
+            <div className="h-screen overflow-y-auto bg-gray-50 flex flex-col font-sans">
+              <Header
+                setIsSidebarOpen={setIsSidebarOpen}
+                isSidebarOpen={isSidebarOpen}
+                metas={metas}
+                disponibleMensual={disponibleMensual}
+                isAuthenticated={isAuthenticated}
+                onLogout={logoutUser}
+              />
+
+              <div className="flex flex-1 overflow-hidden">
+                <Sidebar
+                  activeTab="recordatorios"
+                  setActiveTab={setActiveTab}
+                  isSidebarOpen={isSidebarOpen}
+                  setIsSidebarOpen={setIsSidebarOpen}
+                  deletePresupuesto={deletePresupuesto}
+                />
+
+                <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6">
+                  <div className="mx-auto max-w-7xl">
+                    <Recordatorios
+                      guardarGastos={guardarGastos}
+                      gastosState={gastosState}
+                      setGastosState={setGastosState}
+                    />
+                  </div>
+                </main>
+              </div>
+            </div>
+          }
+        />
+
+        <Route
+          path="/gestion-datos"
+          element={
+            <div className="h-screen overflow-y-auto bg-gray-50 flex flex-col font-sans">
+              <Header
+                setIsSidebarOpen={setIsSidebarOpen}
+                isSidebarOpen={isSidebarOpen}
+                metas={metas}
+                disponibleMensual={disponibleMensual}
+                isAuthenticated={isAuthenticated}
+                onLogout={logoutUser}
+              />
+
+              <div className="flex flex-1 overflow-hidden">
+                <Sidebar
+                  activeTab="gestionDatos"
+                  setActiveTab={setActiveTab}
+                  isSidebarOpen={isSidebarOpen}
+                  setIsSidebarOpen={setIsSidebarOpen}
+                  deletePresupuesto={deletePresupuesto}
+                />
+
+                <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6">
+                  <div className="mx-auto max-w-7xl">
+                    <DataManagement />
+                  </div>
+                </main>
+              </div>
+            </div>
+          }
+        />
+
+        {/* Ruta por defecto */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </Router>
   );
 }
 

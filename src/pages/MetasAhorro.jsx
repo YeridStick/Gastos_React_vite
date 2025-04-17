@@ -158,24 +158,33 @@ export default function MetasAhorro({ presupuesto, gastosState, ingresosExtra = 
   // Eliminar meta
   const handleEliminar = (metaId) => {
     Swal.fire({
-      title: '¿Eliminar meta?',
-      text: 'Esta acción no se puede deshacer',
-      icon: 'warning',
+      title: "¿Eliminar meta?",
+      text: "Esta acción no se puede deshacer",
+      icon: "warning",
       showCancelButton: true,
-      confirmButtonColor: '#ef4444',
-      cancelButtonColor: '#6b7280',
-      confirmButtonText: 'Sí, eliminar',
-      cancelButtonText: 'Cancelar'
+      confirmButtonColor: "#ef4444",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Sí, eliminar",
+      cancelButtonText: "Cancelar",
     }).then((result) => {
       if (result.isConfirmed) {
-        const metasActualizadas = metas.filter(meta => meta.id !== metaId);
+        // Guardar el ID de la meta eliminada en localStorage
+        const eliminados = JSON.parse(localStorage.getItem("eliminados")) || {};
+        if (!eliminados["MetasAhorro"]) {
+          eliminados["MetasAhorro"] = [];
+        }
+        eliminados["MetasAhorro"].push(metaId);
+        localStorage.setItem("eliminados", JSON.stringify(eliminados));
+
+        // Actualizar el estado de las metas
+        const metasActualizadas = metas.filter((meta) => meta.id !== metaId);
         setMetas(metasActualizadas);
-        
+
         Swal.fire({
-          title: 'Meta eliminada',
-          icon: 'success',
+          title: "Meta eliminada",
+          icon: "success",
           timer: 1500,
-          showConfirmButton: false
+          showConfirmButton: false,
         });
       }
     });

@@ -1,8 +1,9 @@
 import RecordatorioTarjeta from './RecordatorioTarjeta';
+import Swal from 'sweetalert2';
 
 export default function ListaRecordatorios({
   recordatorios,
-  eliminarRecordatorio,
+  setRecordatorios,
   marcarCompletado,
   setRecordatorioEditar,
   filtroActual,
@@ -31,6 +32,42 @@ export default function ListaRecordatorios({
       default:
         return recordatorios;
     }
+  };
+
+  const eliminarRecordatorio = (recordatorioId) => {
+    Swal.fire({
+      title: "¿Eliminar recordatorio?",
+      text: "Esta acción no se puede deshacer",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#ef4444",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Sí, eliminar",
+      cancelButtonText: "Cancelar",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        // Guardar el ID del recordatorio eliminado en localStorage
+        const eliminados = JSON.parse(localStorage.getItem("eliminados")) || {};
+        if (!eliminados["recordatorios"]) {
+          eliminados["recordatorios"] = [];
+        }
+        eliminados["recordatorios"].push(recordatorioId);
+        localStorage.setItem("eliminados", JSON.stringify(eliminados));
+
+        // Actualizar el estado de los recordatorios
+        const recordatoriosActualizados = recordatorios.filter(
+          (recordatorio) => recordatorio.id !== recordatorioId
+        );
+        setRecordatorios(recordatoriosActualizados);
+
+        Swal.fire({
+          title: "Recordatorio eliminado",
+          icon: "success",
+          timer: 1500,
+          showConfirmButton: false,
+        });
+      }
+    });
   };
 
   // Recordatorios filtrados

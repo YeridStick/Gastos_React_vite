@@ -12,6 +12,7 @@ import IconoGasto from "../assets/img/icono_gastos.svg";
 import IconoOcio from "../assets/img/icono_ocio.svg";
 import IconoSalud from "../assets/img/icono_salud.svg";
 import IconoEducacion from "../assets/img/icono_suscripciones.svg";
+import HistorialEliminados from "../components/HistorialEliminados";
 
 // Componente para mostrar tarjetas en el Dashboard
 const DashboardCard = ({ title, amount, color, icon, trend, percentage }) => {
@@ -639,6 +640,8 @@ export default function Dashboard({
           </p>
         )}
       </div>
+       {/* Historial de elementos eliminados */}
+       <HistorialEliminados />
     </div>
   );
 }
