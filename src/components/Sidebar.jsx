@@ -1,44 +1,16 @@
 import { Link, useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
-import Swal from "sweetalert2";
-import { syncNow } from "../services/syncService";
 
-export default function Sidebar({ setIsSidebarOpen, isSidebarOpen, activeTab, setActiveTab, deletePresupuesto }) {
+export default function Sidebar({ 
+  setIsSidebarOpen, 
+  isSidebarOpen, 
+  activeTab, 
+  setActiveTab, 
+  deletePresupuesto,
+  isAuthenticated,  // Recibir estado de autenticación del padre
+  onManualSync     // Recibir función de sincronización del padre
+}) {  
+  
   const navigate = useNavigate();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  // Verificar estado de autenticación
-  useEffect(() => {
-    const checkAuth = () => {
-      const token = localStorage.getItem("token");
-      const userEmail = localStorage.getItem("userEmail");
-      setIsAuthenticated(!!(token && userEmail));
-    };
-
-    // Verificar al montar el componente
-    checkAuth();
-
-    // Crear un listener para el evento storage para detectar cambios en la autenticación
-    const handleStorageChange = (e) => {
-      if (e.key === "token" || e.key === "userEmail") {
-        checkAuth();
-      }
-    };
-
-    window.addEventListener("storage", handleStorageChange);
-
-    // Crear un evento personalizado para cambios de autenticación dentro de la misma ventana
-    const handleAuthChange = () => {
-      checkAuth();
-    };
-
-    window.addEventListener("authChange", handleAuthChange);
-
-    return () => {
-      window.removeEventListener("storage", handleStorageChange);
-      window.removeEventListener("authChange", handleAuthChange);
-    };
-  }, []);
 
   const handleNavigation = (path) => {
     if (window.innerWidth < 768) {
@@ -55,30 +27,10 @@ export default function Sidebar({ setIsSidebarOpen, isSidebarOpen, activeTab, se
     handleNavigation("/register");
   };
 
-  // Función para sincronizar manualmente
+  // Función simplificada para sincronizar manualmente
   const handleManualSync = () => {
-    // Verificar si la función syncNow está disponible
-    if (window.syncNow && typeof window.syncNow === 'function') {
-      syncNow();
-      Swal.fire({
-        title: 'Sincronización Exitosa',
-        text: 'Tus datos han sido sincronizados con éxito',
-        icon: 'success',
-        confirmButtonColor: '#3b82f6'
-      });
-    } else {
-      console.error("La función syncNow no está disponible");
-      
-      // Mostrar una alerta de error si SweetAlert está disponible
-      if (window.Swal) {
-        window.Swal.fire({
-          title: 'Error',
-          text: 'La función de sincronización no está disponible',
-          icon: 'error',
-          confirmButtonColor: '#3085d6'
-        });
-      }
-    }
+    // Llamar a la función proporcionada por el componente padre
+    onManualSync();
   };
 
   return (

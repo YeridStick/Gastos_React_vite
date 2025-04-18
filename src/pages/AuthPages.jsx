@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 
 // Importar el servicio de sincronización mejorado
-import { syncInitialDataAfterLogin, syncDataToServer } from "../services/syncService";
+import { syncInitialDataAfterLogin } from "../services/syncService";
 
 const API_BASE_URL = "http://localhost:8080/api";
 

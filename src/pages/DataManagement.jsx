@@ -1,10 +1,12 @@
 import { useState } from "react";
-
-import { syncDataToServer } from "../services/syncService";
 import DataExport from "../components/exportImportDat/DataExport";
 import DataImport from "../components/exportImportDat/DataImport";
 
-const DataManagement = () => {
+// Eliminar esta importación
+// import { syncDataToServer } from "../services/syncService";
+
+// Recibir onSyncData como prop
+const DataManagement = ({ onSyncData }) => {
   const [refreshKey, setRefreshKey] = useState(0);
   const isAuthenticated = localStorage.getItem("token") !== null;
 
@@ -13,9 +15,9 @@ const DataManagement = () => {
     // Forzar la actualización del componente
     setRefreshKey(prevKey => prevKey + 1);
     
-    // Si el usuario está autenticado, sincronizar con el servidor
-    if (isAuthenticated) {
-      syncDataToServer();
+    // Si el usuario está autenticado, usar la función de sincronización recibida por props
+    if (isAuthenticated && onSyncData) {
+      onSyncData();
     }
   };
 

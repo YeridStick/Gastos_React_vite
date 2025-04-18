@@ -1,5 +1,6 @@
 // syncService.js - Servicio de sincronización mejorado
 const API_BASE_URL = "http://localhost:8080/api";
+let syncInProgress;
 
 /**
  * Inicializa la estructura para elementos eliminados si no existe
@@ -447,64 +448,19 @@ export const cleanupSync = () => {
 };
 
 
-let syncInProgress = false;
-let syncDebounceTimer = null;
-
-export const syncNowWithDebounce = async (debounceTime = 5000) => {
-  // Si ya hay una sincronización en progreso, no hacer nada
-  if (syncInProgress) {
-    console.log("Sincronización ya en progreso, ignorando solicitud");
-    return false;
-  }
-  
-  // Cancelar cualquier temporizador existente
-  if (syncDebounceTimer) {
-    clearTimeout(syncDebounceTimer);
-  }
-  
-  // Configurar un temporizador para evitar múltiples sincronizaciones en poco tiempo
-  return new Promise((resolve) => {
-    syncDebounceTimer = setTimeout(async () => {
-      try {
-        syncInProgress = true;
-        console.log("Ejecutando sincronización manual (con debounce)...");
-        
-        // Mostrar indicador de sincronización
-        if (window.Swal) {
-          window.Swal.fire({
-            title: "Sincronizando",
-            text: "Sincronizando datos con el servidor...",
-            icon: "info",
-            timer: 2000,
-            showConfirmButton: false
-          });
-        }
-        
-        // Ejecutar la sincronización
-        const result = await syncNow();
-        
-        syncInProgress = false;
-        syncDebounceTimer = null;
-        resolve(result);
-      } catch (error) {
-        console.error("Error durante la sincronización:", error);
-        syncInProgress = false;
-        syncDebounceTimer = null;
-        resolve(false);
-      }
-    }, debounceTime);
-  });
-};
-
-window.syncNow = syncNowWithDebounce;
-
-
 /**
  * Realiza una sincronización manual bajo demanda
  * @returns {Promise<boolean>} Éxito de la sincronización
  */
 export const syncNow = async () => {
+  // Evitar sincronizaciones simultáneas
+  if (syncInProgress) {
+    console.log("Sincronización ya en progreso, ignorando solicitud");
+    return false;
+  }
+  
   try {
+    syncInProgress = true;
     console.log("Iniciando sincronización manual...");
     
     const token = localStorage.getItem("token");
@@ -525,17 +481,26 @@ export const syncNow = async () => {
       return false;
     }
 
-    // Mostrar alerta de carga
-    if (window.Swal) {
-      window.Swal.fire({
-        title: 'Sincronizando',
-        text: 'Sincronizando datos con el servidor...',
-        didOpen: () => {
-          window.Swal.showLoading();
-        },
-        allowOutsideClick: false
-      });
+    // Primero subir datos locales al servidor
+    const uploadResult = await syncDataToServer();
+    
+    if (!uploadResult) {
+      console.error("Error en la sincronización al servidor");
+      if (window.Swal) {
+        window.Swal.fire({
+          title: 'Error',
+          text: 'Error al sincronizar datos al servidor',
+          icon: 'error',
+          confirmButtonColor: '#3085d6'
+        });
+      }
+      return false;
     }
+    
+    // Luego descargar datos actualizados
+    const downloadResult = await syncDataFromServer();
+    
+    return uploadResult && downloadResult;
 
   } catch (error) {
     console.error("Error durante la sincronización manual:", error);
@@ -551,11 +516,10 @@ export const syncNow = async () => {
     }
     
     return false;
+  } finally {
+    syncInProgress = false;
   }
 };
-
-// Exponer la función globalmente
-window.syncNow = syncNow;
 
 
 /**

@@ -32,7 +32,6 @@ import {
   setupSyncObserver,
   setupPeriodicSync,
   handleLogout,
-  resolveSessionConflict,
   setupSessionConflictDetection,
 } from "./services/syncService";
 
@@ -81,30 +80,57 @@ function App() {
   }, []);
 
   // Verificar autenticación al cargar
-  useEffect(() => {
+  /*useEffect(() => {
     const token = localStorage.getItem("token");
     const userEmail = localStorage.getItem("userEmail");
 
     if (token && userEmail) {
       setIsAuthenticated(true);
 
-      // Configurar sincronización automática con el servicio mejorado
-      setupSyncObserver();
+      console.log("Configuración de sincronización inicializada en App.js");
 
-      // Sincronización periódica cada 5 minutos
+      // Configurar sincronización automática con el servicio mejorado (una sola vez)
+      const cleanup = setupSyncObserver();
+
+      // Configurar la sincronización periódica (retorna el ID del intervalo)
       const syncInterval = setupPeriodicSync(5);
 
-      // Sincronizar datos completos desde el servidor al iniciar (forzar full sync)
-      syncDataFromServer(true);
-
-      console.log("Configuración de sincronización inicializada en App.js");
+      // Solo sincronizar datos completos desde el servidor una vez al iniciar
+      // Usar un pequeño timeout para evitar que múltiples componentes soliciten
+      // la sincronización al mismo tiempo
+      const initialSyncTimeout = setTimeout(() => {
+        syncDataFromServer(true);
+      }, 100);
 
       // Limpiar recursos de sincronización al desmontar
       return () => {
         if (syncInterval) {
           clearInterval(syncInterval);
         }
+        if (initialSyncTimeout) {
+          clearTimeout(initialSyncTimeout);
+        }
+        if (cleanup) {
+          cleanup();
+        }
         console.log("Recursos de sincronización liberados");
+      };
+    }
+  }, []);*/
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const userEmail = localStorage.getItem("userEmail");
+  
+    if (token && userEmail) {
+      setIsAuthenticated(true);
+  
+      const cleanup = setupSyncObserver();
+      
+      return () => {
+        if (cleanup) {
+          cleanup();
+        }
       };
     }
   }, []);
@@ -160,6 +186,50 @@ function App() {
       }
     }
   }, []);
+
+  const handleManualSync = async () => {
+    try {
+      console.log("Iniciando sincronización manual desde App.js...");
+
+      Swal.fire({
+        title: "Sincronizando",
+        text: "Sincronizando datos con el servidor...",
+        didOpen: () => {
+          Swal.showLoading();
+        },
+        allowOutsideClick: false,
+      });
+
+      const result = await syncDataToServer();
+
+      if (result) {
+        await syncDataFromServer();
+
+        Swal.fire({
+          title: "Sincronización Exitosa",
+          text: "Tus datos han sido sincronizados con éxito",
+          icon: "success",
+          timer: 2000,
+          showConfirmButton: false,
+        });
+      } else {
+        Swal.fire({
+          title: "Error",
+          text: "Hubo un problema durante la sincronización",
+          icon: "error",
+          confirmButtonColor: "#ef4444",
+        });
+      }
+    } catch (error) {
+      console.error("Error durante la sincronización manual:", error);
+      Swal.fire({
+        title: "Error",
+        text: "Hubo un problema durante la sincronización",
+        icon: "error",
+        confirmButtonColor: "#ef4444",
+      });
+    }
+  };
 
   // Función para manejar el éxito del inicio de sesión
   const handleLoginSuccess = (data) => {
@@ -519,12 +589,13 @@ function App() {
               {isValid ? (
                 <div className="flex flex-1 overflow-hidden">
                   <Sidebar
-                    activeTab={activeTab}
+                    activeTab="dashboard"
                     setActiveTab={setActiveTab}
                     isSidebarOpen={isSidebarOpen}
                     setIsSidebarOpen={setIsSidebarOpen}
                     deletePresupuesto={deletePresupuesto}
-                    isAuthenticated={isAuthenticated} // Añadir esta prop
+                    isAuthenticated={isAuthenticated}
+                    onManualSync={handleManualSync}
                   />
 
                   <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6">
@@ -646,6 +717,8 @@ function App() {
                   isSidebarOpen={isSidebarOpen}
                   setIsSidebarOpen={setIsSidebarOpen}
                   deletePresupuesto={deletePresupuesto}
+                  isAuthenticated={isAuthenticated}
+                  onManualSync={handleManualSync}
                 />
 
                 <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6">
@@ -725,6 +798,8 @@ function App() {
                   isSidebarOpen={isSidebarOpen}
                   setIsSidebarOpen={setIsSidebarOpen}
                   deletePresupuesto={deletePresupuesto}
+                  isAuthenticated={isAuthenticated}
+                  onManualSync={handleManualSync}
                 />
 
                 <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6">
@@ -758,6 +833,8 @@ function App() {
                   isSidebarOpen={isSidebarOpen}
                   setIsSidebarOpen={setIsSidebarOpen}
                   deletePresupuesto={deletePresupuesto}
+                  isAuthenticated={isAuthenticated}
+                  onManualSync={handleManualSync}
                 />
 
                 <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6">
@@ -795,6 +872,8 @@ function App() {
                   isSidebarOpen={isSidebarOpen}
                   setIsSidebarOpen={setIsSidebarOpen}
                   deletePresupuesto={deletePresupuesto}
+                  isAuthenticated={isAuthenticated}
+                  onManualSync={handleManualSync}
                 />
 
                 <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6">
@@ -827,11 +906,13 @@ function App() {
 
               <div className="flex flex-1 overflow-hidden">
                 <Sidebar
-                  activeTab="gestionAhorro"
+                  activeTab="gestion-ahorro"
                   setActiveTab={setActiveTab}
                   isSidebarOpen={isSidebarOpen}
                   setIsSidebarOpen={setIsSidebarOpen}
                   deletePresupuesto={deletePresupuesto}
+                  isAuthenticated={isAuthenticated}
+                  onManualSync={handleManualSync}
                 />
 
                 <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6">
@@ -871,6 +952,8 @@ function App() {
                   isSidebarOpen={isSidebarOpen}
                   setIsSidebarOpen={setIsSidebarOpen}
                   deletePresupuesto={deletePresupuesto}
+                  isAuthenticated={isAuthenticated}
+                  onManualSync={handleManualSync}
                 />
 
                 <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6">
@@ -902,16 +985,20 @@ function App() {
 
               <div className="flex flex-1 overflow-hidden">
                 <Sidebar
-                  activeTab="gestionDatos"
+                  activeTab="gestion-datos"
                   setActiveTab={setActiveTab}
                   isSidebarOpen={isSidebarOpen}
                   setIsSidebarOpen={setIsSidebarOpen}
                   deletePresupuesto={deletePresupuesto}
+                  isAuthenticated={isAuthenticated}
+                  onManualSync={handleManualSync}
                 />
 
                 <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6">
                   <div className="mx-auto max-w-7xl">
-                    <DataManagement />
+                    <DataManagement
+                      onSyncData={handleManualSync}
+                    />
                   </div>
                 </main>
               </div>

@@ -30,6 +30,7 @@ export default function Gastos({ gastos, setGastoEditar, editar, eliminar }) {
   
   // Verificar si el gasto proviene de un recordatorio
   const esGastoDeRecordatorio = gastos.origen === "recordatorio";
+
   
   // Estado para los colores y categorías
   const [categoriaInfo, setCategoriaInfo] = useState({

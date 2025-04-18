@@ -80,19 +80,67 @@ export default function Categorias({ gastosState }) {
   // Estado para categorías (predefinidas + personalizadas)
   const [categorias, setCategorias] = useState([]);
 
-  // Cargar categorías guardadas en localStorage
+  const generarIdUnico = (nombre) => {
+    // Base: nombre sin espacios y en minúsculas
+    const baseId = nombre.trim().replace(/\s+/g, "").toLowerCase();
+
+    // Añadir timestamp para garantizar unicidad incluso si se usa el mismo nombre
+    const timestamp = Date.now();
+
+    // Combinar con un valor aleatorio para mayor unicidad
+    const randomPart = Math.floor(Math.random() * 1000);
+
+    return `${baseId}-${timestamp}-${randomPart}`;
+  };
+
   useEffect(() => {
     const categoriasGuardadas = localStorage.getItem("categorias");
+    const userId = localStorage.getItem("userEmail") || "local";
+    const eliminadosGuardados =
+      JSON.parse(localStorage.getItem("eliminados")) || {};
+    const categoriasEliminadas = eliminadosGuardados.categorias || [];
+
+    console.log("Categorías en lista de eliminados:", categoriasEliminadas);
 
     if (categoriasGuardadas) {
-      // Si hay categorías guardadas, las usamos
-      setCategorias(JSON.parse(categoriasGuardadas));
+      // Si hay categorías guardadas, filtrar las que han sido eliminadas
+      let categoriasParseadas = JSON.parse(categoriasGuardadas);
+      const cantidadOriginal = categoriasParseadas.length;
+
+      // Filtrar categorías que NO están en la lista de eliminados
+      categoriasParseadas = categoriasParseadas.filter((cat) => {
+        const estaEliminada = categoriasEliminadas.includes(cat.id);
+        if (estaEliminada) {
+          console.log(
+            `Filtrando categoría eliminada: ${cat.nombre} (${cat.id})`
+          );
+        }
+        return !estaEliminada;
+      });
+
+      console.log(
+        `Categorías filtradas: ${categoriasParseadas.length} de ${cantidadOriginal}`
+      );
+      setCategorias(categoriasParseadas);
+
+      // Actualizar localStorage solo si hay cambios en las categorías
+      if (categoriasParseadas.length !== cantidadOriginal) {
+        console.log("Actualizando localStorage con categorías filtradas");
+        localStorage.setItem("categorias", JSON.stringify(categoriasParseadas));
+      }
     } else {
-      // Si no hay categorías guardadas, usamos las predefinidas
-      setCategorias(categoriasPredefinidas);
-      localStorage.setItem(
-        "categorias",
-        JSON.stringify(categoriasPredefinidas)
+      // Si no hay categorías guardadas, generamos IDs únicos para las predefinidas
+      const categoriasConIdUnico = categoriasPredefinidas.map((cat) => ({
+        ...cat,
+        id: generarIdUnico(cat.baseId, userId),
+        _esPredefinida: true, // Marca interna para saber que es predefinida
+      }));
+
+      setCategorias(categoriasConIdUnico);
+      localStorage.setItem("categorias", JSON.stringify(categoriasConIdUnico));
+      console.log(
+        "Categorías predefinidas inicializadas:",
+        categoriasConIdUnico.length
       );
     }
   }, []);
@@ -151,14 +199,27 @@ export default function Categorias({ gastosState }) {
     }
   }, [gastosState, categorias]);
 
-  // Función para guardar eliminados
   const guardarEliminados = (tipo, id) => {
+    // Asegurarse de que estamos guardando solo el ID (string)
+    const idAGuardar = typeof id === "object" && id.id ? id.id : id;
+
+    // Obtener los datos actuales de "eliminados" en localStorage
     const eliminados = JSON.parse(localStorage.getItem("eliminados")) || {};
+
+    // Si no existe el tipo, inicializarlo como un array vacío
     if (!eliminados[tipo]) {
       eliminados[tipo] = [];
     }
-    eliminados[tipo].push(id);
-    localStorage.setItem("eliminados", JSON.stringify(eliminados));
+
+    // Verificar si el ID ya existe en el array para evitar duplicados
+    if (!eliminados[tipo].includes(idAGuardar)) {
+      eliminados[tipo].push(idAGuardar);
+
+      // Guardar los datos actualizados en localStorage
+      localStorage.setItem("eliminados", JSON.stringify(eliminados));
+
+      console.log(`ID guardado en eliminados (${tipo}): ${idAGuardar}`);
+    }
   };
 
   // Función para agregar una nueva categoría
@@ -169,14 +230,9 @@ export default function Categorias({ gastosState }) {
       return;
     }
 
-    // Crear ID basado en el nombre (sin espacios y en minúsculas)
-    const id = nuevaCategoria.nombre.trim().replace(/\s+/g, "");
-
-    // Verificar si ya existe una categoría con ese ID
+    // Verificar si ya existe una categoría con ese nombre
     const categoriaExistente = categorias.find(
-      (cat) =>
-        cat.id.toLowerCase() === id.toLowerCase() ||
-        cat.nombre.toLowerCase() === nuevaCategoria.nombre.toLowerCase()
+      (cat) => cat.nombre.toLowerCase() === nuevaCategoria.nombre.toLowerCase()
     );
 
     if (categoriaExistente) {
@@ -184,6 +240,9 @@ export default function Categorias({ gastosState }) {
       setTimeout(() => setError(false), 3000);
       return;
     }
+
+    // Crear ID único
+    const id = generarIdUnico(nuevaCategoria.nombre);
 
     // Crear nueva categoría
     const nuevaCat = {
@@ -204,78 +263,70 @@ export default function Categorias({ gastosState }) {
     setModalAbierto(false);
   };
 
-  // Función para eliminar una categoría personalizada
   // Función para eliminar una categoría
   const eliminarCategoria = (categoriaId) => {
     // Verificar si hay gastos asociados a esta categoría
     const tieneGastos = gastosPorCategoria[categoriaId]?.cantidad > 0;
 
     if (tieneGastos) {
-      // Comprobar si es una categoría predefinida
-      const esPredefinida = categoriasPredefinidas.some(
-        (cat) => cat.id === categoriaId
-      );
+      // Si hay gastos asociados, no permitir eliminar la categoría
+      const categoria = categorias.find((c) => c.id === categoriaId);
+      const cantidadGastos = gastosPorCategoria[categoriaId].cantidad;
+      const totalGastos = gastosPorCategoria[categoriaId].total;
 
-      if (esPredefinida) {
-        // Para categorías predefinidas, no permitimos reasignar automáticamente
-        Swal.fire({
-          title: "No se puede eliminar",
-          html: `<p>La categoría <strong>${
-            categorias.find((c) => c.id === categoriaId)?.nombre
-          }</strong> tiene gastos asociados.</p>
-              <p class="mt-2">Debes eliminar o reasignar todos los gastos de esta categoría antes de eliminarla.</p>`,
-          icon: "warning",
-          confirmButtonColor: "#3b82f6",
-        });
-        return;
-      } else {
-        // Para categorías personalizadas, ofrecemos reasignar a "Otros"
-        Swal.fire({
-          title: "Categoría con gastos",
-          html: `<p>Esta categoría tiene <strong>${gastosPorCategoria[categoriaId].cantidad} gastos</strong> asociados.</p>
-               <p>Si la elimina, los gastos se asignarán a la categoría 'Otros'.</p>`,
-          icon: "warning",
-          showCancelButton: true,
-          confirmButtonColor: "#ef4444",
-          cancelButtonColor: "#6b7280",
-          confirmButtonText: "Reasignar y eliminar",
-          cancelButtonText: "Cancelar",
-        }).then((result) => {
-          if (result.isConfirmed) {
-            // Reasignar gastos a la categoría "Otros"
-            if (gastosState.length > 0) {
-              const gastosActualizados = gastosState.map((gasto) => {
-                if (gasto.categoria === categoriaId) {
-                  return { ...gasto, categoria: "Otros" };
-                }
-                return gasto;
-              });
+      Swal.fire({
+        title: "No se puede eliminar",
+        html: `
+        <p>La categoría <strong>${
+          categoria?.nombre
+        }</strong> tiene <strong>${cantidadGastos} gasto${
+          cantidadGastos !== 1 ? "s" : ""
+        }</strong> asociados por un total de ${cantidad(totalGastos)}.</p>
+        <p class="mt-2">Para eliminar esta categoría, primero debes cambiar la categoría de los gastos asociados o eliminarlos.</p>
+        <div class="mt-4 flex flex-col space-y-2">
+          <button id="ver-detalles" class="w-full px-4 py-2 bg-blue-100 text-blue-800 rounded-md text-sm font-medium hover:bg-blue-200 transition-colors">
+            Ver detalles de los gastos
+          </button>
+          <button id="ir-gastos" class="w-full px-4 py-2 bg-gray-100 text-gray-800 rounded-md text-sm font-medium hover:bg-gray-200 transition-colors">
+            Ir a gestión de gastos
+          </button>
+        </div>
+      `,
+        icon: "warning",
+        showConfirmButton: true,
+        confirmButtonText: "Entendido",
+        confirmButtonColor: "#3b82f6",
+        showCancelButton: false,
+        didOpen: () => {
+          // Agregar manejadores de eventos a los botones personalizados
+          document
+            .getElementById("ver-detalles")
+            .addEventListener("click", () => {
+              // Cerrar el diálogo actual
+              Swal.close();
+              // Mostrar detalles de la categoría
+              setCategoriaSeleccionada(categoria);
+            });
 
-              // Actualizar localStorage con gastos modificados
-              localStorage.setItem(
-                "ObjetosGastos",
-                JSON.stringify(gastosActualizados)
-              );
+          document.getElementById("ir-gastos").addEventListener("click", () => {
+            // Aquí podrías navegar a la página de gestión de gastos
+            // Por ejemplo, utilizando navegación programática si usas React Router
+            // navigate('/gastos');
 
-              // Notificar que los gastos han sido reasignados
-              Swal.fire({
-                title: "Gastos reasignados",
-                text: `Los gastos han sido reasignados a la categoría 'Otros'`,
-                icon: "success",
-                timer: 2000,
-                showConfirmButton: false,
-              });
-
-              // Continuar con la eliminación de la categoría
-              eliminarCategoriaConfirmada(categoriaId);
-            }
-          }
-        });
-        return;
-      }
+            // O simplemente mostrar un mensaje para indicar cómo acceder a la gestión de gastos
+            Swal.fire({
+              title: "Gestión de gastos",
+              text: "Dirígete a la sección de gastos para editar o eliminar los gastos asociados a esta categoría.",
+              icon: "info",
+              confirmButtonColor: "#3b82f6",
+            });
+          });
+        },
+      });
+      return;
     }
 
-    // Si no tiene gastos, simplemente confirmar eliminación
+    // Si no tiene gastos, confirmar eliminación
     Swal.fire({
       title: "¿Eliminar categoría?",
       text: `¿Estás seguro de eliminar la categoría "${
@@ -296,14 +347,22 @@ export default function Categorias({ gastosState }) {
 
   // Función para completar la eliminación una vez confirmada
   const eliminarCategoriaConfirmada = (categoriaId) => {
-    // Verificar si es una categoría predefinida y asegurarse que quede al menos una
-    const esPredefinida = categoriasPredefinidas.some(
-      (cat) => cat.id === categoriaId
-    );
-    const categoriasPredefinidaActuales = categorias.filter((cat) =>
-      categoriasPredefinidas.some((predefinida) => predefinida.id === cat.id)
+    // Verificar si es una categoría predefinida
+    const categoriaActual = categorias.find((cat) => cat.id === categoriaId);
+    if (!categoriaActual) {
+      console.error(`No se encontró la categoría con ID: ${categoriaId}`);
+      return;
+    }
+
+    const esPredefinida = categoriaActual._esPredefinida === true;
+    const nombreCategoria = categoriaActual.nombre;
+
+    // Contar categorías predefinidas actuales
+    const categoriasPredefinidaActuales = categorias.filter(
+      (cat) => cat._esPredefinida === true
     );
 
+    // Impedir eliminar si es la última categoría predefinida
     if (esPredefinida && categoriasPredefinidaActuales.length <= 1) {
       Swal.fire({
         title: "No se puede eliminar",
@@ -314,19 +373,45 @@ export default function Categorias({ gastosState }) {
       return;
     }
 
-    // Guardar el ID de la categoría eliminada
+    console.log(`Eliminando categoría: ${nombreCategoria} (${categoriaId})`);
+
+    // 1. Guardar el ID en el registro de eliminados
     guardarEliminados("categorias", categoriaId);
 
-    // Eliminar la categoría
+    // 2. Eliminar la categoría del array local
     const nuevasCategorias = categorias.filter((cat) => cat.id !== categoriaId);
     setCategorias(nuevasCategorias);
 
-    // Si la categoría eliminada estaba seleccionada, deseleccionarla
+    // 3. Actualizar el localStorage con la nueva lista de categorías
+    localStorage.setItem("categorias", JSON.stringify(nuevasCategorias));
+    console.log(
+      `Categoría eliminada. Quedan ${nuevasCategorias.length} categorías`
+    );
+
+    // 4. Eliminar entradas redundantes si existen
+    // Esto es para limpiar el elementosEliminados si existe (que es redundante)
+    try {
+      const elementosEliminados =
+        JSON.parse(localStorage.getItem("elementosEliminados")) || {};
+      if (elementosEliminados.categorias) {
+        if (!elementosEliminados.categorias.includes(categoriaId)) {
+          elementosEliminados.categorias.push(categoriaId);
+          localStorage.setItem(
+            "elementosEliminados",
+            JSON.stringify(elementosEliminados)
+          );
+        }
+      }
+    } catch (e) {
+      console.error("Error al actualizar elementosEliminados:", e);
+    }
+
+    // 5. Si la categoría eliminada estaba seleccionada, deseleccionarla
     if (categoriaSeleccionada?.id === categoriaId) {
       setCategoriaSeleccionada(null);
     }
 
-    // Notificar éxito
+    // 6. Notificar éxito
     Swal.fire({
       title: "Categoría eliminada",
       icon: "success",
@@ -367,7 +452,7 @@ export default function Categorias({ gastosState }) {
       {/* Tarjetas de categorías */}
       <div className="grid grid-cols-1 gap-3 sm:gap-6">
         {categorias.map((categoria) => {
-          const stats = gastosPorCategoria[categoria.id] || {
+          const stats = gastosPorCategoria[categoria.nombre] || {
             total: 0,
             cantidad: 0,
             porcentaje: 0,
