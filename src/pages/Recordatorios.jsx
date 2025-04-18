@@ -3,7 +3,6 @@ import Swal from "sweetalert2";
 import RecordatorioFormulario from "../components/recordatorio/RecordatorioFormulario";
 import ListaRecordatorios from "../components/recordatorio/ListaRecordatorios";
 
-
 export default function RecordatoriosPage({ setGastosState }) {
   const [recordatorios, setRecordatorios] = useState([]);
   const [recordatorioEditar, setRecordatorioEditar] = useState(null);
@@ -22,14 +21,22 @@ export default function RecordatoriosPage({ setGastosState }) {
       const recordatoriosGuardados = localStorage.getItem("recordatorios");
       if (recordatoriosGuardados) {
         const parsedRecordatorios = JSON.parse(recordatoriosGuardados);
-        const recordatoriosActualizados = parsedRecordatorios.map((recordatorio) => {
-          if (recordatorio.estado === "pendiente" && recordatorio.fechaVencimiento < Date.now()) {
-            return { ...recordatorio, estado: "vencido" };
+        const recordatoriosActualizados = parsedRecordatorios.map(
+          (recordatorio) => {
+            if (
+              recordatorio.estado === "pendiente" &&
+              recordatorio.fechaVencimiento < Date.now()
+            ) {
+              return { ...recordatorio, estado: "vencido" };
+            }
+            return recordatorio;
           }
-          return recordatorio;
-        });
+        );
         setRecordatorios(recordatoriosActualizados);
-        localStorage.setItem("recordatorios", JSON.stringify(recordatoriosActualizados));
+        localStorage.setItem(
+          "recordatorios",
+          JSON.stringify(recordatoriosActualizados)
+        );
       }
     } catch (error) {
       console.error("Error al cargar recordatorios:", error);
@@ -40,19 +47,7 @@ export default function RecordatoriosPage({ setGastosState }) {
   const cargarCategorias = () => {
     try {
       const categoriasGuardadas = localStorage.getItem("categorias");
-      if (categoriasGuardadas) {
-        setCategorias(JSON.parse(categoriasGuardadas));
-      } else {
-        const categoriasPredefinidas = [
-          { id: "Comida", nombre: "Comida" },
-          { id: "Casa", nombre: "Casa" },
-          { id: "Ocio", nombre: "Ocio" },
-          { id: "Salud", nombre: "Salud" },
-          { id: "Educacion", nombre: "Educación" },
-          { id: "Otros", nombre: "Otros" },
-        ];
-        setCategorias(categoriasPredefinidas);
-      }
+      setCategorias(JSON.parse(categoriasGuardadas));
     } catch (error) {
       console.error("Error al cargar categorías:", error);
     }
@@ -61,39 +56,44 @@ export default function RecordatoriosPage({ setGastosState }) {
   // Función para guardar un recordatorio
   const guardarRecordatorio = (nuevoRecordatorio) => {
     let recordatoriosActualizados;
-    
+
     if (recordatorioEditar) {
       // Actualizar recordatorio existente
       recordatoriosActualizados = recordatorios.map((recordatorio) =>
-        recordatorio.id === recordatorioEditar.id ? nuevoRecordatorio : recordatorio
+        recordatorio.id === recordatorioEditar.id
+          ? nuevoRecordatorio
+          : recordatorio
       );
-      
+
       Swal.fire({
-        title: 'Recordatorio actualizado',
-        icon: 'success',
+        title: "Recordatorio actualizado",
+        icon: "success",
         timer: 1500,
-        showConfirmButton: false
+        showConfirmButton: false,
       });
     } else {
       // Crear nuevo recordatorio
       recordatoriosActualizados = [nuevoRecordatorio, ...recordatorios];
-      
+
       Swal.fire({
-        title: 'Recordatorio guardado',
-        icon: 'success',
+        title: "Recordatorio guardado",
+        icon: "success",
         timer: 1500,
-        showConfirmButton: false
+        showConfirmButton: false,
       });
     }
-    
+
     // Guardar en localStorage y actualizar estado
     setRecordatorios(recordatoriosActualizados);
-    localStorage.setItem("recordatorios", JSON.stringify(recordatoriosActualizados));
+    localStorage.setItem(
+      "recordatorios",
+      JSON.stringify(recordatoriosActualizados)
+    );
     setRecordatorioEditar(null);
   };
 
   // Función para eliminar un recordatorio
-  const eliminarRecordatorio = (id) => {
+  const eliminarRecordatorio = (recordatorioId) => {
     Swal.fire({
       title: "¿Eliminar recordatorio?",
       text: "Esta acción no se puede deshacer",
@@ -105,16 +105,31 @@ export default function RecordatoriosPage({ setGastosState }) {
       cancelButtonText: "Cancelar",
     }).then((result) => {
       if (result.isConfirmed) {
-        const recordatoriosActualizados = recordatorios.filter((recordatorio) => recordatorio.id !== id);
+        // Actualizar el estado de los recordatorios
+        const recordatoriosActualizados = recordatorios.filter(
+          (recordatorio) => recordatorio.id !== recordatorioId
+        );
         setRecordatorios(recordatoriosActualizados);
-        localStorage.setItem("recordatorios", JSON.stringify(recordatoriosActualizados));
-        
+  
+        // Guardar el ID del recordatorio eliminado en localStorage
+        const eliminados = JSON.parse(localStorage.getItem("eliminados")) || {};
+        if (!eliminados["recordatorios"]) {
+          eliminados["recordatorios"] = [];
+        }
+        eliminados["recordatorios"].push(recordatorioId);
+        localStorage.setItem("eliminados", JSON.stringify(eliminados));
+  
+        // Actualizar localStorage de recordatorios
+        localStorage.setItem(
+          "recordatorios", 
+          JSON.stringify(recordatoriosActualizados)
+        );
+  
         Swal.fire({
-          title: "Eliminado",
-          text: "El recordatorio ha sido eliminado.",
+          title: "Recordatorio eliminado",
           icon: "success",
           timer: 1500,
-          showConfirmButton: false
+          showConfirmButton: false,
         });
       }
     });
@@ -123,92 +138,95 @@ export default function RecordatoriosPage({ setGastosState }) {
   // Función para marcar un recordatorio como completado
   const marcarCompletado = (id) => {
     // Encontrar el recordatorio que se va a marcar como completado
-    const recordatorio = recordatorios.find(r => r.id === id);
-    
+    const recordatorio = recordatorios.find((r) => r.id === id);
+
     if (!recordatorio) return;
-    
+
     Swal.fire({
-      title: '¿Marcar como completado?',
+      title: "¿Marcar como completado?",
       text: `¿Has realizado el pago de "${recordatorio.titulo}"?`,
-      icon: 'question',
+      icon: "question",
       showCancelButton: true,
-      confirmButtonColor: '#10B981',
-      cancelButtonColor: '#6B7280',
-      confirmButtonText: 'Sí, completar',
-      cancelButtonText: 'Cancelar'
+      confirmButtonColor: "#10B981",
+      cancelButtonColor: "#6B7280",
+      confirmButtonText: "Sí, completar",
+      cancelButtonText: "Cancelar",
     }).then((result) => {
       if (result.isConfirmed) {
         let recordatoriosActualizados = [...recordatorios];
-        
+
         // Si es recurrente, crear el próximo recordatorio
         if (recordatorio.esRecurrente) {
           const proximaFecha = calcularProximaFecha(
             recordatorio.fechaVencimiento,
             recordatorio.frecuencia
           );
-          
+
           const nuevoRecordatorio = {
             ...recordatorio,
             id: crypto.randomUUID(),
             fechaVencimiento: proximaFecha,
             fechaCreacion: Date.now(),
-            estado: 'pendiente'
+            estado: "pendiente",
           };
-          
+
           recordatoriosActualizados.push(nuevoRecordatorio);
         }
-        
+
         // Actualizar el estado del recordatorio actual
-        recordatoriosActualizados = recordatoriosActualizados.map(r => 
-          r.id === id ? { ...r, estado: 'completado' } : r
+        recordatoriosActualizados = recordatoriosActualizados.map((r) =>
+          r.id === id ? { ...r, estado: "completado" } : r
         );
-        
+
         // Guardar cambios
         setRecordatorios(recordatoriosActualizados);
-        localStorage.setItem('recordatorios', JSON.stringify(recordatoriosActualizados));
-        
+        localStorage.setItem(
+          "recordatorios",
+          JSON.stringify(recordatoriosActualizados)
+        );
+
         // Preguntar si quiere registrar como gasto
         registrarComoGasto(recordatorio);
       }
     });
   };
-  
+
   // Función para calcular la próxima fecha según la frecuencia
   const calcularProximaFecha = (fechaActual, frecuencia) => {
     const fecha = new Date(fechaActual);
-    
+
     switch (frecuencia) {
-      case 'diario':
+      case "diario":
         fecha.setDate(fecha.getDate() + 1);
         break;
-      case 'semanal':
+      case "semanal":
         fecha.setDate(fecha.getDate() + 7);
         break;
-      case 'quincenal':
+      case "quincenal":
         fecha.setDate(fecha.getDate() + 15);
         break;
-      case 'mensual':
+      case "mensual":
         fecha.setMonth(fecha.getMonth() + 1);
         break;
-      case 'bimestral':
+      case "bimestral":
         fecha.setMonth(fecha.getMonth() + 2);
         break;
-      case 'trimestral':
+      case "trimestral":
         fecha.setMonth(fecha.getMonth() + 3);
         break;
-      case 'semestral':
+      case "semestral":
         fecha.setMonth(fecha.getMonth() + 6);
         break;
-      case 'anual':
+      case "anual":
         fecha.setFullYear(fecha.getFullYear() + 1);
         break;
       default:
         fecha.setMonth(fecha.getMonth() + 1);
     }
-    
+
     return fecha.getTime();
   };
-  
+
   // Función para registrar como gasto en el presupuesto
   const registrarComoGasto = (recordatorio) => {
     Swal.fire({
@@ -252,7 +270,8 @@ export default function RecordatoriosPage({ setGastosState }) {
   const guardarGasto = (nuevoGasto) => {
     try {
       // Obtener los gastos actuales desde localStorage
-      const gastosGuardados = JSON.parse(localStorage.getItem("ObjetosGastos")) || [];
+      const gastosGuardados =
+        JSON.parse(localStorage.getItem("ObjetosGastos")) || [];
 
       // Agregar el nuevo gasto
       const gastosActualizados = [nuevoGasto, ...gastosGuardados];
@@ -291,11 +310,13 @@ export default function RecordatoriosPage({ setGastosState }) {
       />
       <ListaRecordatorios
         recordatorios={recordatorios}
+        setRecordatorios={setRecordatorios} 
         eliminarRecordatorio={eliminarRecordatorio}
         marcarCompletado={marcarCompletado}
         setRecordatorioEditar={setRecordatorioEditar}
         filtroActual={filtroActual}
         setFiltroActual={setFiltroActual}
+        categorias={categorias} 
       />
     </div>
   );

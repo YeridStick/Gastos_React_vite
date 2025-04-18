@@ -3,11 +3,13 @@ import Swal from 'sweetalert2';
 
 export default function ListaRecordatorios({
   recordatorios,
-  setRecordatorios,
+  setRecordatorios, // Asegúrate de que esta prop esté definida
   marcarCompletado,
   setRecordatorioEditar,
   filtroActual,
-  setFiltroActual
+  setFiltroActual,
+  categorias, // Añadir categorias como prop
+  eliminarRecordatorio // O usar esta función directamente si ya está pasada como prop
 }) {
   // Filtrar recordatorios según el filtro seleccionado
   const filtrarRecordatorios = () => {
@@ -32,42 +34,6 @@ export default function ListaRecordatorios({
       default:
         return recordatorios;
     }
-  };
-
-  const eliminarRecordatorio = (recordatorioId) => {
-    Swal.fire({
-      title: "¿Eliminar recordatorio?",
-      text: "Esta acción no se puede deshacer",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: "#ef4444",
-      cancelButtonColor: "#6b7280",
-      confirmButtonText: "Sí, eliminar",
-      cancelButtonText: "Cancelar",
-    }).then((result) => {
-      if (result.isConfirmed) {
-        // Guardar el ID del recordatorio eliminado en localStorage
-        const eliminados = JSON.parse(localStorage.getItem("eliminados")) || {};
-        if (!eliminados["recordatorios"]) {
-          eliminados["recordatorios"] = [];
-        }
-        eliminados["recordatorios"].push(recordatorioId);
-        localStorage.setItem("eliminados", JSON.stringify(eliminados));
-
-        // Actualizar el estado de los recordatorios
-        const recordatoriosActualizados = recordatorios.filter(
-          (recordatorio) => recordatorio.id !== recordatorioId
-        );
-        setRecordatorios(recordatoriosActualizados);
-
-        Swal.fire({
-          title: "Recordatorio eliminado",
-          icon: "success",
-          timer: 1500,
-          showConfirmButton: false,
-        });
-      }
-    });
   };
 
   // Recordatorios filtrados
@@ -148,8 +114,9 @@ export default function ListaRecordatorios({
               key={recordatorio.id}
               recordatorio={recordatorio}
               onEditar={setRecordatorioEditar}
-              onEliminar={() => eliminarRecordatorio(recordatorio.id)}
-              onCompletar={() => marcarCompletado(recordatorio.id)}
+              onEliminar={eliminarRecordatorio}
+              onCompletar={marcarCompletado}
+              categorias={categorias} // Pasar categorías a RecordatorioTarjeta
             />
           ))
         ) : (

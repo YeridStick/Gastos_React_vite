@@ -231,7 +231,7 @@ export default function RecordatorioFormulario({
           >
             <option value="">-- Seleccionar Categoría --</option>
             {categorias.map(cat => (
-              <option key={cat.id} value={cat.id}>
+              <option key={cat.id} value={cat.nombre}>
                 {cat.nombre}
               </option>
             ))}

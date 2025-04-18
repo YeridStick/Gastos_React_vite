@@ -41,23 +41,24 @@ export default function Gastos({ gastos, setGastoEditar, editar, eliminar }) {
   // Cargar información de la categoría desde localStorage
   useEffect(() => {
     try {
-      const categoriasGuardadas = localStorage.getItem('categorias');
-      
+      const categoriasGuardadas = localStorage.getItem("categorias");
+  
       if (categoriasGuardadas) {
         const categorias = JSON.parse(categoriasGuardadas);
-        const categoriaEncontrada = categorias.find(cat => cat.id === gastos.categoria);
-        
+        const categoriaEncontrada = categorias.find(
+          (cat) => cat.nombre === gastos.categoria
+        );
+  
         if (categoriaEncontrada) {
-          // Si se encuentra la categoría, usar su información
           setCategoriaInfo({
-            icono: iconosPredefinidos[gastos.categoria] || IconoGasto, // Usar icono predefinido o genérico
-            color: categoriaEncontrada.color || 'bg-gray-100 text-gray-800'
+            icono: categoriaEncontrada.icono || IconoGasto, 
+            color: categoriaEncontrada.color || "bg-gray-100 text-gray-800", 
           });
         } else {
           // Si no se encuentra la categoría, usar valores predeterminados
           setCategoriaInfo({
             icono: IconoGasto,
-            color: 'bg-gray-100 text-gray-800'
+            color: "bg-gray-100 text-gray-800",
           });
         }
       }

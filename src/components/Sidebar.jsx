@@ -38,7 +38,7 @@ export default function Sidebar({
       {/* Overlay para móvil */}
       {isSidebarOpen && (
         <div
-          className="fixed inset-0 z-20 bg-black bg-opacity-50 transition-opacity md:hidden"
+          className="fixed inset-0 z-20 bg-black bg-opacity-50 transition-opacity md:hidden w-full"
           onClick={() => setIsSidebarOpen(false)}
         ></div>
       )}
@@ -46,7 +46,7 @@ export default function Sidebar({
       {/* Sidebar */}
       <aside
         className={`
-          fixed inset-y-0 left-0 z-30 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out
+          fixed inset-y-0 left-0 z-30 w-72 bg-white shadow-lg transform transition-transform duration-300 ease-in-out
           ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"} 
           md:translate-x-0 md:static md:h-auto md:z-0
         `}

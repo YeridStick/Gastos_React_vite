@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { cantidad, formatearFecha } from '../../helpers/index';
 
 // Iconos para categorías
@@ -14,8 +15,48 @@ export default function RecordatorioTarjeta({
   recordatorio, 
   onEditar, 
   onEliminar, 
-  onCompletar 
+  onCompletar,
+  categorias // Prop para obtener los nombres de categorías
 }) {
+  // Estado para el color de la categoría
+  const [categoriaInfo, setCategoriaInfo] = useState({
+    icono: IconoGasto,
+    color: 'bg-gray-100 text-gray-800'
+  });
+  
+  // Cargar información de la categoría
+  useEffect(() => {
+    try {
+      if (categorias && categorias.length > 0) {
+        const categoriaEncontrada = categorias.find(
+          (cat) => cat.id === recordatorio.categoria
+        );
+        
+        if (categoriaEncontrada) {
+          setCategoriaInfo({
+            icono: getIconoPorCategoria(categoriaEncontrada.id),
+            color: categoriaEncontrada.color || "bg-gray-100 text-gray-800", 
+          });
+        } else {
+          // Si no se encuentra la categoría, usar valores predeterminados
+          setCategoriaInfo({
+            icono: getIconoPorCategoria(recordatorio.categoria),
+            color: "bg-gray-100 text-gray-800",
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error al cargar información de categoría:", error);
+    }
+  }, [recordatorio.categoria, categorias]);
+
+  // Función para obtener el nombre de la categoría
+  const getNombreCategoria = (categoriaId) => {
+    if (!categorias) return categoriaId;
+    const categoria = categorias.find(cat => cat.id === categoriaId);
+    return categoria ? categoria.nombre : categoriaId;
+  };
+
   // Obtener icono según la categoría
   const getIconoPorCategoria = (categoriaId) => {
     switch (categoriaId) {
@@ -86,8 +127,8 @@ export default function RecordatorioTarjeta({
           <div className="flex-shrink-0 mr-3">
             <div className={`w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center`}>
               <img 
-                src={getIconoPorCategoria(recordatorio.categoria)} 
-                alt={recordatorio.categoria} 
+                src={categoriaInfo.icono} 
+                alt={getNombreCategoria(recordatorio.categoria)} 
                 className="h-6 w-6"
               />
             </div>
@@ -106,8 +147,8 @@ export default function RecordatorioTarjeta({
                 </span>
               )}
               
-              <span className="px-2 py-0.5 text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
-                {recordatorio.categoria}
+              <span className={`px-2 py-0.5 text-xs leading-5 font-semibold rounded-full ${categoriaInfo.color}`}>
+                {getNombreCategoria(recordatorio.categoria)}
               </span>
             </div>
             
@@ -152,7 +193,7 @@ export default function RecordatorioTarjeta({
         <div className="mt-3 pt-3 border-t border-gray-100 flex justify-end gap-2 flex-wrap">
           {recordatorio.estado !== 'completado' && (
             <button 
-              onClick={() => onCompletar(recordatorio)}
+              onClick={() => onCompletar(recordatorio.id)}
               className="px-3 py-1.5 bg-green-50 rounded-md text-green-600 text-xs font-medium hover:bg-green-100 transition-colors"
             >
               <span className="flex items-center">
@@ -177,7 +218,7 @@ export default function RecordatorioTarjeta({
           </button>
           
           <button 
-            onClick={() => onEliminar(recordatorio)}
+            onClick={() => onEliminar(recordatorio.id)}
             className="px-3 py-1.5 bg-red-50 rounded-md text-red-600 text-xs font-medium hover:bg-red-100 transition-colors"
           >
             <span className="flex items-center">

@@ -674,178 +674,158 @@ export default function Categorias({ gastosState }) {
       )}
 
       {/* Modal para agregar nueva categoría */}
+      {/* Improved Responsive Modal for New Category */}
       {modalAbierto && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-            {/* Overlay de fondo */}
+          <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center">
+            {/* Overlay Background */}
             <div
-              className="fixed inset-0 transition-opacity"
-              aria-hidden="true"
-            >
-              <div className="absolute inset-0 bg-gray-900 opacity-75"></div>
-            </div>
+              className="fixed inset-0 bg-black/40 transition-opacity"
+              onClick={() => setModalAbierto(false)}
+            ></div>
 
-            {/* Centrar modal */}
-            <span
-              className="hidden sm:inline-block sm:align-middle sm:h-screen"
-              aria-hidden="true"
-            >
-              &#8203;
-            </span>
-
-            {/* Contenido del modal */}
-            <div
-              className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="modal-headline"
-            >
-              {/* Botón cerrar */}
-              <div className="absolute top-0 right-0 p-3 sm:p-4">
-                <button
-                  onClick={() => setModalAbierto(false)}
-                  className="text-gray-400 hover:text-gray-500 focus:outline-none"
+            {/* Modal Container */}
+            <div className="relative w-full max-w-md mx-auto transform overflow-hidden rounded-2xl bg-white shadow-xl transition-all">
+              {/* Close Button */}
+              <button
+                onClick={() => setModalAbierto(false)}
+                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 focus:outline-none"
+              >
+                <svg
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
                 >
-                  <span className="sr-only">Cerrar</span>
-                  <svg
-                    className="h-5 w-5 sm:h-6 sm:w-6"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </div>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
 
-              {/* Título y formulario */}
-              <div className="px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                <div className="sm:flex sm:items-start">
-                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
-                    <h3
-                      className="text-xl sm:text-2xl leading-6 font-semibold text-gray-900 mb-4"
-                      id="modal-headline"
-                    >
-                      Nueva Categoría
-                    </h3>
+              {/* Modal Content */}
+              <div className="p-6 space-y-6">
+                <h3 className="text-xl font-semibold text-gray-900 text-center">
+                  Nueva Categoría
+                </h3>
 
-                    {error && (
-                      <div className="bg-red-50 border-l-4 border-red-500 p-3 sm:p-4 mb-4 rounded">
-                        <div className="flex">
-                          <div className="flex-shrink-0">
-                            <svg
-                              className="h-5 w-5 text-red-500"
-                              xmlns="http://www.w3.org/2000/svg"
-                              viewBox="0 0 20 20"
-                              fill="currentColor"
-                            >
-                              <path
-                                fillRule="evenodd"
-                                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                          </div>
-                          <div className="ml-3">
-                            <p className="text-xs sm:text-sm text-red-700">
-                              El nombre de la categoría es requerido y debe ser
-                              único
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    <form className="space-y-4">
-                      <div>
-                        <label
-                          htmlFor="nombreCategoria"
-                          className="block text-xs sm:text-sm font-medium text-gray-700"
+                {/* Error Message */}
+                {error && (
+                  <div className="bg-red-50 border-l-4 border-red-500 p-3 rounded-md">
+                    <div className="flex items-center">
+                      <div className="flex-shrink-0 mr-3">
+                        <svg
+                          className="h-5 w-5 text-red-500"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
                         >
-                          Nombre de la Categoría
-                        </label>
-                        <input
-                          type="text"
-                          name="nombreCategoria"
-                          id="nombreCategoria"
-                          value={nuevaCategoria.nombre}
-                          onChange={(e) =>
-                            setNuevaCategoria({
-                              ...nuevaCategoria,
-                              nombre: e.target.value,
-                            })
-                          }
-                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-xs sm:text-sm"
-                          placeholder="Ej: Transporte"
-                        />
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
                       </div>
-
-                      <div>
-                        <label className="block text-xs sm:text-sm font-medium text-gray-700">
-                          Color
-                        </label>
-                        <div className="mt-2 grid grid-cols-5 gap-2">
-                          {coloresDisponibles.map((color) => (
-                            <button
-                              key={color.id}
-                              type="button"
-                              onClick={() =>
-                                setNuevaCategoria({
-                                  ...nuevaCategoria,
-                                  color: color.valor,
-                                })
-                              }
-                              className={`w-full h-8 sm:h-10 rounded-md ${
-                                color.valor
-                              } flex items-center justify-center ${
-                                nuevaCategoria.color === color.valor
-                                  ? "ring-2 ring-offset-2 ring-blue-500"
-                                  : ""
-                              }`}
-                              title={color.nombre}
-                            >
-                              {nuevaCategoria.color === color.valor && (
-                                <svg
-                                  className="h-4 w-4 sm:h-5 sm:w-5"
-                                  fill="currentColor"
-                                  viewBox="0 0 20 20"
-                                >
-                                  <path
-                                    fillRule="evenodd"
-                                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                    clipRule="evenodd"
-                                  />
-                                </svg>
-                              )}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="pt-4 flex justify-end space-x-3">
-                        <button
-                          type="button"
-                          onClick={() => setModalAbierto(false)}
-                          className="px-3 py-1.5 sm:px-4 sm:py-2 border border-gray-300 rounded-md text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-50"
-                        >
-                          Cancelar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={agregarCategoria}
-                          className="px-3 py-1.5 sm:px-4 sm:py-2 bg-blue-600 text-white text-xs sm:text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                        >
-                          Guardar
-                        </button>
-                      </div>
-                    </form>
+                      <p className="text-sm text-red-700">
+                        El nombre de la categoría es requerido y debe ser único
+                      </p>
+                    </div>
                   </div>
+                )}
+
+                {/* Category Name Input */}
+                <div>
+                  <label
+                    htmlFor="nombreCategoria"
+                    className="block text-sm font-medium text-gray-700 mb-2"
+                  >
+                    Nombre de la Categoría
+                  </label>
+                  <input
+                    type="text"
+                    name="nombreCategoria"
+                    id="nombreCategoria"
+                    value={nuevaCategoria.nombre}
+                    onChange={(e) =>
+                      setNuevaCategoria({
+                        ...nuevaCategoria,
+                        nombre: e.target.value,
+                      })
+                    }
+                    className="block w-full rounded-md border-gray-300 shadow-sm 
+              focus:border-blue-500 focus:ring-blue-500 
+              text-sm py-2.5 px-3"
+                    placeholder="Ej: Transporte"
+                  />
+                </div>
+
+                {/* Color Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Color
+                  </label>
+                  <div className="grid grid-cols-5 gap-2">
+                    {coloresDisponibles.map((color) => (
+                      <button
+                        key={color.id}
+                        type="button"
+                        onClick={() =>
+                          setNuevaCategoria({
+                            ...nuevaCategoria,
+                            color: color.valor,
+                          })
+                        }
+                        className={`aspect-square rounded-md ${color.valor} 
+                    flex items-center justify-center 
+                    focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
+                    ${
+                      nuevaCategoria.color === color.valor
+                        ? "ring-2 ring-blue-500"
+                        : "hover:opacity-80"
+                    }`}
+                        title={color.nombre}
+                      >
+                        {nuevaCategoria.color === color.valor && (
+                          <svg
+                            className="h-5 w-5 text-white"
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => setModalAbierto(false)}
+                    className="flex-1 py-2.5 border border-gray-300 rounded-md 
+              text-sm font-medium text-gray-700 
+              hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={agregarCategoria}
+                    className="flex-1 py-2.5 bg-blue-600 text-white 
+              rounded-md text-sm font-medium 
+              hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    Guardar
+                  </button>
                 </div>
               </div>
             </div>
