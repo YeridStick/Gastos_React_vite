@@ -2,24 +2,9 @@ import { useState, useEffect } from 'react';
 import { formatearFecha, cantidad } from '../../helpers/index';
 
 // Iconos para categorías
-import IconoAhorro from '../../assets/img/icono_ahorro.svg';
-import IconoCasa from '../../assets/img/icono_casa.svg';
-import IconoComida from '../../assets/img/icono_comida.svg';
 import IconoGasto from '../../assets/img/icono_gastos.svg';
-import IconoOcio from '../../assets/img/icono_ocio.svg';
-import IconoSalud from '../../assets/img/icono_salud.svg';
-import IconoEducacion from '../../assets/img/icono_suscripciones.svg';
 
-// Mapeo de categorías predefinidas a iconos
-const iconosPredefinidos = {
-  Ahorro: IconoAhorro,
-  Comida: IconoComida,
-  Casa: IconoCasa,
-  Ocio: IconoOcio,
-  Salud: IconoSalud,
-  Educacion: IconoEducacion,
-  Otros: IconoGasto,
-};
+
 
 export default function Gastos({ gastos, setGastoEditar, editar, eliminar }) {
   // Para obtener la fecha formateada
