@@ -5,7 +5,7 @@ import Swal from "sweetalert2";
 // Importar el servicio de sincronización mejorado
 import { syncInitialDataAfterLogin } from "../services/syncService";
 
-const API_BASE_URL = "http://localhost:8080/api";
+const API_BASE_URL = "https://g-gastosback-production.up.railway.app/api";
 
 const AuthPages = ({ onLoginSuccess }) => {
   const [isLogin, setIsLogin] = useState(true); // Por defecto muestra el inicio de sesión
