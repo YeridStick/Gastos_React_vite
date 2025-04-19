@@ -1,5 +1,4 @@
-// syncService.js - Servicio de sincronización mejorado
-const API_BASE_URL = "http://localhost:8080/api";
+const API_BASE_URL = "https://g-gastosback-production.up.railway.app/api";
 let syncInProgress;
 
 /**
@@ -44,22 +43,6 @@ export const registrarElementoEliminado = (tipo, id) => {
     localStorage.setItem("eliminados", JSON.stringify(eliminados));
     console.log(`Elemento registrado para eliminación: ${tipo} - ${id}`);
   }
-};
-
-/**
- * Limpia la estructura de elementos eliminados
- */
-const limpiarElementosEliminados = () => {
-  const estructuraVacia = {
-    ObjetosGastos: [],
-    IngresosExtra: [],
-    MetasAhorro: [],
-    categorias: [],
-    recordatorios: []
-  };
-  
-  localStorage.setItem("eliminados", JSON.stringify(estructuraVacia));
-  console.log("Lista de elementos eliminados limpiada");
 };
 
 /**
@@ -116,10 +99,6 @@ export const syncDataToServer = async () => {
     });
 
     if (response.ok) {
-      // Si la sincronización fue exitosa, limpiar los elementos eliminados
-      /*if (hayElementosEliminados) {
-        limpiarElementosEliminados();
-      }*/
       
       // Actualizar timestamp de última sincronización
       localStorage.setItem("lastSyncTimestamp", timestamp.toString());
@@ -763,7 +742,6 @@ export const resolveSessionConflict = async (userChoice) => {
   }
 };
 
-// Modificar la exportación final para incluir syncNow
 export default {
   syncDataToServer,
   syncDataFromServer,
