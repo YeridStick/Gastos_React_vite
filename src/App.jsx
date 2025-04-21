@@ -203,7 +203,7 @@ function App() {
       const result = await syncDataToServer();
 
       if (result) {
-        await syncDataFromServer();
+        //await syncDataFromServer();
 
         Swal.fire({
           title: "Sincronización Exitosa",
