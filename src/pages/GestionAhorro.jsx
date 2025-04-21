@@ -423,7 +423,7 @@ export default function GestionAhorro({ presupuesto, gastosState, ingresosExtra 
             <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-gray-500">
               Este es el dinero que puedes distribuir entre tus metas de ahorro.
             </p>
-            <div className="mt-3 sm:mt-4 flex flex-col sm:flex-row gap-2 sm:gap-3">
+            {/*<div className="mt-3 sm:mt-4 flex flex-col sm:flex-row gap-2 sm:gap-3">
               <div className="flex items-center">
                 <input
                   type="checkbox"
@@ -447,7 +447,7 @@ export default function GestionAhorro({ presupuesto, gastosState, ingresosExtra 
               >
                 Distribuir Ahorro
               </button>
-            </div>
+            </div>*/}
           </div>
         </div>
       </div>
