@@ -7,7 +7,7 @@ export default function SidebarHeader({
 }) {
   return (
     <div className="px-4 py-4 border-b border-gray-200">
-      {/* Botón Toggle Inventario */}
+      {/* Botón Toggle Inventario 
       <div className="mt-3">
         <button
           onClick={onToggleInventoryMode}
@@ -43,7 +43,7 @@ export default function SidebarHeader({
           </svg>
           {inventoryOnlyMode ? "Mostrar Todo" : "Solo Inventario"}
         </button>
-      </div>
+      </div>*/}
 
       <div className="flex items-center">
         <button
