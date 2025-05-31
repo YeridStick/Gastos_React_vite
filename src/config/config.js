@@ -2,7 +2,7 @@
 
 // Configuración de la API
 export const API_CONFIG = {
-  BASE_URL: "g-gastosback-production.up.railway.app/api",
+  BASE_URL: "https://g-gastosback-production.up.railway.app//api",
   ENDPOINTS: {
     AUTH: {
       REQUEST_CODE: "/auth/request-code",
