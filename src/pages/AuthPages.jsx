@@ -102,13 +102,13 @@ const AuthPages = ({ onLoginSuccess }) => {
   const handleRequestCode = async (e) => {
     if (e) e.preventDefault();
     setIsLoading(true);
-    
+
     try {
       // The service call is expected to handle HTTP errors and return data on success or server-side error in body
       const data = await requestVerificationCode(credentials.email);
 
-      // Assume success if data has a message and it does NOT indicate an error
-      if (data && data.message && !data.message.toLowerCase().includes('error')) {
+      // Assume success ONLY if the specific success message is received
+      if (data && data.message === "Código de verificación enviado") {
         setIsCodeSent(true);
         setCountdown(300); // 5 minutos en segundos
         Swal.fire({
@@ -117,17 +117,17 @@ const AuthPages = ({ onLoginSuccess }) => {
           icon: "success",
           confirmButtonColor: "#3b82f6",
         });
-      } else if (data && data.message) { // If data has a message and it *does* indicate an error
+      } else if (data && data.message) { // If data has a message, but it's not the success message, treat as error
          Swal.fire({
           title: "Error",
-          text: data.message,
+          text: data.message, // Use the specific error message from the server (e.g., "Email no registrado")
           icon: "error",
           confirmButtonColor: "#3b82f6",
         });
       } else { // Handle cases where response data is missing or unexpected format
          Swal.fire({
           title: "Error",
-          text: "No se pudo enviar el código de verificación",
+          text: "No se pudo enviar el código de verificación debido a una respuesta inesperada del servidor.",
           icon: "error",
           confirmButtonColor: "#3b82f6",
         });

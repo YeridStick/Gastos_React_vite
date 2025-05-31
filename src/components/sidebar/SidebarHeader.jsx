@@ -2,8 +2,8 @@ import PropTypes from "prop-types";
 
 export default function SidebarHeader({
   onClose,
-  inventoryOnlyMode,
-  onToggleInventoryMode,
+  //inventoryOnlyMode,
+  //onToggleInventoryMode,
 }) {
   return (
     <div className="px-4 py-4 border-b border-gray-200">
@@ -74,6 +74,6 @@ export default function SidebarHeader({
 
 SidebarHeader.propTypes = {
   onClose: PropTypes.func.isRequired,
-  inventoryOnlyMode: PropTypes.bool.isRequired,
-  onToggleInventoryMode: PropTypes.func.isRequired,
+  //inventoryOnlyMode: PropTypes.bool.isRequired,
+  //onToggleInventoryMode: PropTypes.func.isRequired,
 };
