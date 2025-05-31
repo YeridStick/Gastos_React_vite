@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import Swal from "sweetalert2";
 import RecordatorioFormulario from "../components/recordatorio/RecordatorioFormulario";
 import ListaRecordatorios from "../components/recordatorio/ListaRecordatorios";
+import PropTypes from "prop-types";
 
 export default function RecordatoriosPage({ setGastosState }) {
   const [recordatorios, setRecordatorios] = useState([]);
@@ -23,15 +24,40 @@ export default function RecordatoriosPage({ setGastosState }) {
         const parsedRecordatorios = JSON.parse(recordatoriosGuardados);
         const recordatoriosActualizados = parsedRecordatorios.map(
           (recordatorio) => {
+            // Asegurarse de que la fecha de vencimiento es un número (timestamp)
+            let fechaVencimiento = recordatorio.fechaVencimiento;
+
+            if (typeof fechaVencimiento === "string") {
+              // Si es una fecha ISO (contiene T)
+              if (fechaVencimiento.includes("T")) {
+                fechaVencimiento = new Date(fechaVencimiento).getTime();
+              }
+              // Si es un string numérico
+              else if (!isNaN(fechaVencimiento)) {
+                fechaVencimiento = Number(fechaVencimiento);
+              }
+              // Si no se puede convertir, mantener la fecha original
+            }
+
+            // Comprobar si está vencido
             if (
               recordatorio.estado === "pendiente" &&
-              recordatorio.fechaVencimiento < Date.now()
+              fechaVencimiento < Date.now()
             ) {
-              return { ...recordatorio, estado: "vencido" };
+              return {
+                ...recordatorio,
+                estado: "vencido",
+                fechaVencimiento,
+              };
             }
-            return recordatorio;
+
+            return {
+              ...recordatorio,
+              fechaVencimiento,
+            };
           }
         );
+
         setRecordatorios(recordatoriosActualizados);
         localStorage.setItem(
           "recordatorios",
@@ -57,11 +83,28 @@ export default function RecordatoriosPage({ setGastosState }) {
   const guardarRecordatorio = (nuevoRecordatorio) => {
     let recordatoriosActualizados;
 
+    // Asegurarse de que la fecha de vencimiento es un timestamp (número)
+    const recordatorioConFechaCorrecta = {
+      ...nuevoRecordatorio,
+      // Si la fecha viene como string ISO, convertirla a timestamp
+      fechaVencimiento:
+        typeof nuevoRecordatorio.fechaVencimiento === "string"
+          ? new Date(nuevoRecordatorio.fechaVencimiento).getTime()
+          : nuevoRecordatorio.fechaVencimiento,
+      // Asegurarse que la fecha de creación es un timestamp
+      fechaCreacion: nuevoRecordatorio.fechaCreacion || Date.now(),
+    };
+
+    console.log(
+      "Guardando recordatorio con fecha:",
+      new Date(recordatorioConFechaCorrecta.fechaVencimiento).toLocaleString()
+    );
+
     if (recordatorioEditar) {
       // Actualizar recordatorio existente
       recordatoriosActualizados = recordatorios.map((recordatorio) =>
         recordatorio.id === recordatorioEditar.id
-          ? nuevoRecordatorio
+          ? recordatorioConFechaCorrecta
           : recordatorio
       );
 
@@ -73,7 +116,10 @@ export default function RecordatoriosPage({ setGastosState }) {
       });
     } else {
       // Crear nuevo recordatorio
-      recordatoriosActualizados = [nuevoRecordatorio, ...recordatorios];
+      recordatoriosActualizados = [
+        recordatorioConFechaCorrecta,
+        ...recordatorios,
+      ];
 
       Swal.fire({
         title: "Recordatorio guardado",
@@ -110,7 +156,7 @@ export default function RecordatoriosPage({ setGastosState }) {
           (recordatorio) => recordatorio.id !== recordatorioId
         );
         setRecordatorios(recordatoriosActualizados);
-  
+
         // Guardar el ID del recordatorio eliminado en localStorage
         const eliminados = JSON.parse(localStorage.getItem("eliminados")) || {};
         if (!eliminados["recordatorios"]) {
@@ -118,13 +164,13 @@ export default function RecordatoriosPage({ setGastosState }) {
         }
         eliminados["recordatorios"].push(recordatorioId);
         localStorage.setItem("eliminados", JSON.stringify(eliminados));
-  
+
         // Actualizar localStorage de recordatorios
         localStorage.setItem(
-          "recordatorios", 
+          "recordatorios",
           JSON.stringify(recordatoriosActualizados)
         );
-  
+
         Swal.fire({
           title: "Recordatorio eliminado",
           icon: "success",
@@ -193,6 +239,7 @@ export default function RecordatoriosPage({ setGastosState }) {
 
   // Función para calcular la próxima fecha según la frecuencia
   const calcularProximaFecha = (fechaActual, frecuencia) => {
+    // Asegurarse de que fechaActual es un objeto Date
     const fecha = new Date(fechaActual);
 
     switch (frecuencia) {
@@ -224,6 +271,7 @@ export default function RecordatoriosPage({ setGastosState }) {
         fecha.setMonth(fecha.getMonth() + 1);
     }
 
+    // Devolver la fecha como timestamp (valor numérico)
     return fecha.getTime();
   };
 
@@ -241,13 +289,18 @@ export default function RecordatoriosPage({ setGastosState }) {
     }).then((result) => {
       if (result.isConfirmed) {
         try {
+          // Asegurarse de usar un timestamp numérico para la fecha
+          const timestamp = Date.now();
+
+          console.log("Creando gasto con timestamp:", timestamp);
+
           // Crear nuevo gasto
           const nuevoGasto = {
             id: crypto.randomUUID(),
             nombreG: recordatorio.titulo,
             gasto: recordatorio.monto,
             categoria: recordatorio.categoria,
-            fecha: Date.now(),
+            fecha: timestamp, // Usar el timestamp directo, sin conversión a string
             origen: "recordatorio",
             recordatorioId: recordatorio.id,
           };
@@ -269,20 +322,31 @@ export default function RecordatoriosPage({ setGastosState }) {
   // Función para guardar un gasto
   const guardarGasto = (nuevoGasto) => {
     try {
-      // Obtener los gastos actuales desde localStorage
+      // Obtener los gastos actuales
       const gastosGuardados =
         JSON.parse(localStorage.getItem("ObjetosGastos")) || [];
 
-      // Agregar el nuevo gasto
-      const gastosActualizados = [nuevoGasto, ...gastosGuardados];
+      // Garantizar que la fecha es un string ISO
+      nuevoGasto.fecha = new Date().toISOString(); // Cambiar esto
 
-      // Guardar en localStorage
+      console.log(
+        "Guardando gasto desde recordatorio con fecha:",
+        nuevoGasto.fecha
+      );
+
+      // Asegurar que el ID es único
+      if (!nuevoGasto.id) {
+        nuevoGasto.id = crypto.randomUUID();
+      }
+
+      // El resto de la función se mantiene igual
+      const gastosActualizados = [nuevoGasto, ...gastosGuardados];
       localStorage.setItem("ObjetosGastos", JSON.stringify(gastosActualizados));
 
-      // Actualizar el estado global de gastos
-      setGastosState(gastosActualizados); // Aquí se usa setGastosState correctamente
+      if (typeof setGastosState === "function") {
+        setGastosState(gastosActualizados);
+      }
 
-      // Mostrar notificación de éxito
       Swal.fire({
         title: "¡Gasto registrado!",
         text: "El gasto ha sido añadido correctamente.",
@@ -310,14 +374,41 @@ export default function RecordatoriosPage({ setGastosState }) {
       />
       <ListaRecordatorios
         recordatorios={recordatorios}
-        setRecordatorios={setRecordatorios} 
+        setRecordatorios={setRecordatorios}
         eliminarRecordatorio={eliminarRecordatorio}
         marcarCompletado={marcarCompletado}
         setRecordatorioEditar={setRecordatorioEditar}
         filtroActual={filtroActual}
         setFiltroActual={setFiltroActual}
-        categorias={categorias} 
+        categorias={categorias}
       />
+      {categorias.length === 0 ? (
+        <div className="bg-white rounded-lg shadow-md p-6 text-center flex flex-col items-center">
+          <svg className="h-10 w-10 text-blue-400 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          <h3 className="text-lg font-semibold text-gray-800 mb-2">¡Crea una categoría primero!</h3>
+          <p className="text-gray-500 mb-4">Para poder registrar gastos, primero necesitas crear al menos una categoría.</p>
+          <button
+            onClick={() => {/* abre modal de crear categoría */}}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+          >
+            Crear categoría
+          </button>
+        </div>
+      ) : recordatorios.length === 0 ? (
+        <div className="bg-white rounded-lg shadow-md p-6 text-center flex flex-col items-center">
+          <svg className="h-10 w-10 text-gray-400 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-6a2 2 0 012-2h2a2 2 0 012 2v6m-6 0h6" />
+          </svg>
+          <h3 className="text-lg font-semibold text-gray-800 mb-2">No hay gastos registrados</h3>
+          <p className="text-gray-500">Agrega tu primer gasto usando el botón "Nuevo Gasto".</p>
+        </div>
+      ) : null}
     </div>
   );
 }
+
+RecordatoriosPage.propTypes = {
+  setGastosState: PropTypes.func.isRequired,
+};

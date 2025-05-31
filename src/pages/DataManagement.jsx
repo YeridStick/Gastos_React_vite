@@ -1,6 +1,7 @@
 import { useState } from "react";
 import DataExport from "../components/exportImportDat/DataExport";
 import DataImport from "../components/exportImportDat/DataImport";
+import PropTypes from "prop-types";
 
 // Eliminar esta importación
 // import { syncDataToServer } from "../services/syncService";
@@ -70,6 +71,10 @@ const DataManagement = ({ onSyncData }) => {
       </div>
     </div>
   );
+};
+
+DataManagement.propTypes = {
+  onSyncData: PropTypes.func,
 };
 
 export default DataManagement;

@@ -1,4 +1,5 @@
 import { cantidad } from "../../helpers/index.js";
+import PropTypes from "prop-types";
 
 const DesgloseAhorroPorMeta = ({ datosReporte }) => {
   return (
@@ -36,13 +37,12 @@ const DesgloseAhorroPorMeta = ({ datosReporte }) => {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {Object.entries(datosReporte.ahorrosPorMeta || {})
-                .sort((a, b) => b[1] - a[1]) // Ordenar por valor descendente
+                .sort((a, b) => Number(b[1]) - Number(a[1])) // Ordenar por valor descendente
                 .map(([nombreMeta, valor]) => {
+                  const monto = Number(valor); // Asegura que es número
                   const porcentaje =
                     datosReporte.totalGastosAhorro > 0
-                      ? Math.round(
-                          (valor / datosReporte.totalGastosAhorro) * 100
-                        )
+                      ? Math.round((monto / Number(datosReporte.totalGastosAhorro)) * 100)
                       : 0;
 
                   return (
@@ -51,7 +51,7 @@ const DesgloseAhorroPorMeta = ({ datosReporte }) => {
                         {nombreMeta}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 text-right">
-                        {cantidad(valor)}
+                        {cantidad(monto)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
                         <div className="flex items-center justify-end">
@@ -91,12 +91,19 @@ const DesgloseAhorroPorMeta = ({ datosReporte }) => {
       ) : (
         <div className="py-12 text-center">
           <p className="text-gray-500">
-            No hay gastos de ahorro en este periodo
+            Aquí se mostrará el detalle de cuánto has ahorrado en cada meta.
           </p>
         </div>
       )}
     </div>
   );
+};
+
+DesgloseAhorroPorMeta.propTypes = {
+  datosReporte: PropTypes.shape({
+    ahorrosPorMeta: PropTypes.object.isRequired,
+    totalGastosAhorro: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+  }).isRequired,
 };
 
 export default DesgloseAhorroPorMeta;

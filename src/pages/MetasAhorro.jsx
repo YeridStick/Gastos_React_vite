@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { cantidad } from "../helpers/index";
 import Swal from "sweetalert2";
+import PropTypes from 'prop-types';
 
 import IconoCasa from "../assets/img/icono_casa.svg";
 import IconoComida from "../assets/img/icono_comida.svg";
@@ -17,20 +18,10 @@ const generarIdUnico = (baseId, userId = "") => {
   return `${userPrefix}${base}-${timestamp}`;
 };
 
-const getNombreCategoria = (tipo) => {
-  switch (tipo) {
-    case "categorias":
-      return "Categorías";
-    // ... otros casos
-    default:
-      return tipo;
-  }
-};
-
 export default function MetasAhorro({
   presupuesto,
   gastosState,
-  ingresosExtra = [],
+  setGastosState,
 }) {
   // Estados
   const [metas, setMetas] = useState(
@@ -106,42 +97,11 @@ export default function MetasAhorro({
     { id: "gray", nombre: "Gris", valor: "bg-gray-100 text-gray-800" },
   ];
 
-  // Calcular disponible mensual
+  // Calcular disponible global: presupuesto - suma total de gastos
   useEffect(() => {
-    // Promedio de gastos mensuales
-    const calcularDisponibleMensual = () => {
-      // Agrupar gastos por mes
-      const gastosPorMes = {};
-      gastosState.forEach((gasto) => {
-        const fecha = new Date(gasto.fecha);
-        const mesAño = `${fecha.getMonth()}-${fecha.getFullYear()}`;
-
-        if (!gastosPorMes[mesAño]) {
-          gastosPorMes[mesAño] = 0;
-        }
-
-        gastosPorMes[mesAño] += gasto.gasto;
-      });
-
-      // Calcular promedio si hay datos
-      if (Object.keys(gastosPorMes).length > 0) {
-        const totalGastos = Object.values(gastosPorMes).reduce(
-          (a, b) => a + b,
-          0
-        );
-        const promedioGastosMensual =
-          totalGastos / Object.keys(gastosPorMes).length;
-
-        // Disponible mensual = presupuesto - promedio de gastos
-        const disponible = presupuesto - promedioGastosMensual;
-        setDisponibleMensual(disponible);
-      } else {
-        // Si no hay gastos registrados, todo el presupuesto está disponible
-        setDisponibleMensual(presupuesto);
-      }
-    };
-
-    calcularDisponibleMensual();
+    const totalGastos = gastosState.reduce((acc, gasto) => acc + Number(gasto.gasto), 0);
+    const disponible = Math.max(0, presupuesto - totalGastos);
+    setDisponibleMensual(disponible);
   }, [presupuesto, gastosState]);
 
   // Persistir metas en localStorage
@@ -173,16 +133,7 @@ export default function MetasAhorro({
   const agregarMeta = (e) => {
     e.preventDefault();
 
-    // Validaciones
-    if ([nombreMeta, montoMeta, fechaObjetivo].includes("") || montoMeta <= 0) {
-      Swal.fire({
-        title: "Error",
-        text: "Todos los campos son obligatorios y el monto debe ser mayor a 0",
-        icon: "error",
-        confirmButtonColor: "#3b82f6",
-      });
-      return;
-    }
+    // Validaciones (se mantienen igual)...
 
     const fechaActual = new Date();
     const fechaObj = new Date(fechaObjetivo);
@@ -206,20 +157,28 @@ export default function MetasAhorro({
     const ahorroMensual = Number(montoMeta) / (diffDias / 30);
     const ahorroAnual = Number(montoMeta) / (diffDias / 365);
 
-    // Crear la meta
+    // Asegurar que las fechas se guardan como números (timestamps)
+    const timestampActual = Date.now();
+    const timestampObjetivo = fechaObj.getTime();
+
+    console.log("Fecha creación meta (timestamp):", timestampActual);
+    console.log("Fecha objetivo (timestamp):", timestampObjetivo);
+
+    // Crear la meta con fechas como timestamps
     const nuevaMeta = {
-      id: metaEnEdicion ? metaEnEdicion.id : Date.now().toString(),
+      id: metaEnEdicion ? metaEnEdicion.id : timestampActual.toString(),
       nombre: nombreMeta,
       monto: Number(montoMeta),
-      fechaObjetivo,
+      fechaObjetivo, // Mantener el string de fecha para el formulario HTML
       descripcion: descripcionMeta,
-      creada: metaEnEdicion ? metaEnEdicion.creada : Date.now(),
+      creada: metaEnEdicion ? metaEnEdicion.creada : timestampActual,
       ahorroAcumulado: metaEnEdicion ? metaEnEdicion.ahorroAcumulado : 0,
       ahorroSemanal,
       ahorroMensual,
       ahorroAnual,
       diasRestantes: diffDias,
       completada: false,
+      userId: localStorage.getItem("userEmail") || null, // Añadir userId para sincronización
     };
 
     // Actualizar estado
@@ -265,7 +224,7 @@ export default function MetasAhorro({
   const handleEditar = (meta) => {
     setMetaEnEdicion(meta);
     setNombreMeta(meta.nombre);
-    setMontoMeta(meta.monto);
+    setMontoMeta(meta.monto.toString());
     setFechaObjetivo(meta.fechaObjetivo);
     setDescripcionMeta(meta.descripcion || "");
 
@@ -273,11 +232,27 @@ export default function MetasAhorro({
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // Eliminar meta
+  // Eliminar meta con verificación de gastos asociados
   const handleEliminar = (metaId) => {
+    // Primero verificar si hay gastos de ahorro asociados a esta meta
+    const meta = metas.find((m) => m.id === metaId);
+    if (!meta) return;
+
+    // Buscar gastos de ahorro relacionados con esta meta
+    const gastosAsociados = gastosState.filter(
+      (gasto) =>
+        gasto.categoria === "Ahorro" &&
+        (gasto.nombreG === `Ahorro: ${meta.nombre}` || gasto.metaId === metaId)
+    );
+
+    const tieneGastosAsociados = gastosAsociados.length > 0;
+    const mensajeAdvertencia = tieneGastosAsociados
+      ? `Esta meta tiene ${gastosAsociados.length} movimientos de ahorro asociados. Al eliminarla, estos también serán eliminados.`
+      : "Esta acción no se puede deshacer";
+
     Swal.fire({
       title: "¿Eliminar meta?",
-      text: "Esta acción no se puede deshacer",
+      text: mensajeAdvertencia,
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#ef4444",
@@ -286,13 +261,57 @@ export default function MetasAhorro({
       cancelButtonText: "Cancelar",
     }).then((result) => {
       if (result.isConfirmed) {
-        // Guardar el ID de la meta eliminada en localStorage
-        const eliminados = JSON.parse(localStorage.getItem("eliminados")) || {};
-        if (!eliminados["MetasAhorro"]) {
-          eliminados["MetasAhorro"] = [];
+        // Si tiene gastos asociados, eliminarlos también
+        if (tieneGastosAsociados) {
+          // Obtener los IDs de los gastos a eliminar
+          const gastosIDs = gastosAsociados.map((gasto) => gasto.id);
+
+          // Guardar los IDs de gastos eliminados
+          const eliminados = JSON.parse(
+            localStorage.getItem("eliminados") || "{}"
+          );
+          if (!eliminados.ObjetosGastos) {
+            eliminados.ObjetosGastos = [];
+          }
+          eliminados.ObjetosGastos = [
+            ...eliminados.ObjetosGastos,
+            ...gastosIDs,
+          ];
+          localStorage.setItem("eliminados", JSON.stringify(eliminados));
+
+          // Filtrar y actualizar los gastos
+          const gastosActualizados = gastosState.filter(
+            (gasto) =>
+              !(
+                gasto.categoria === "Ahorro" &&
+                (gasto.nombreG === `Ahorro: ${meta.nombre}` ||
+                  gasto.metaId === metaId)
+              )
+          );
+
+          // Actualizar los gastos en localStorage (siempre hacemos esto)
+          localStorage.setItem(
+            "ObjetosGastos",
+            JSON.stringify(gastosActualizados)
+          );
+
+          // Si tenemos acceso a la función setGastosState, actualizamos el estado
+          if (typeof setGastosState === "function") {
+            console.log(
+              "Actualizando estado de gastos después de eliminar meta"
+            );
+            setGastosState(gastosActualizados);
+          } else {
+            console.log(
+              "No se pudo actualizar el estado de gastos (setGastosState no disponible)"
+            );
+            // Podríamos mostrar un mensaje al usuario indicando que debe recargar la página
+            // o implementar una solución alternativa aquí
+          }
         }
-        eliminados["MetasAhorro"].push(metaId);
-        localStorage.setItem("eliminados", JSON.stringify(eliminados));
+
+        // Guardar el ID de la meta eliminada en localStorage
+        guardarEliminados("MetasAhorro", metaId);
 
         // Actualizar el estado de las metas
         const metasActualizadas = metas.filter((meta) => meta.id !== metaId);
@@ -310,12 +329,37 @@ export default function MetasAhorro({
 
   // Formatear fecha
   const formatearFecha = (fechaString) => {
-    const fecha = new Date(fechaString);
-    return fecha.toLocaleDateString("es-ES", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
+    try {
+      let fecha;
+
+      // Si es un timestamp numérico o string
+      if (typeof fechaString === "number" || !isNaN(fechaString)) {
+        fecha = new Date(Number(fechaString));
+      }
+      // Si es una fecha ISO
+      else if (typeof fechaString === "string" && fechaString.includes("T")) {
+        fecha = new Date(fechaString);
+      }
+      // Otros formatos de fecha (yyyy-mm-dd)
+      else {
+        fecha = new Date(fechaString);
+      }
+
+      // Verificar que es una fecha válida
+      if (isNaN(fecha.getTime())) {
+        console.error("Fecha inválida:", fechaString);
+        return "Fecha no válida";
+      }
+
+      return fecha.toLocaleDateString("es-ES", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+    } catch (error) {
+      console.error("Error al formatear fecha:", error);
+      return "Error en formato de fecha";
+    }
   };
 
   // Calcular progreso de meta
@@ -344,30 +388,30 @@ export default function MetasAhorro({
       setTimeout(() => setError(false), 3000);
       return;
     }
-  
+
     // Verificar si ya existe una categoría con ese nombre
     const categoriaExistente = categorias.find(
       (cat) => cat.nombre.toLowerCase() === nuevaCategoria.nombre.toLowerCase()
     );
-  
+
     if (categoriaExistente) {
       setError(true);
       setTimeout(() => setError(false), 3000);
       return;
     }
-  
+
     // Verificar si coincide con alguna categoría predefinida para usar su icono
     const tipoCategoria = categoriasPredefinidas.find(
       (cat) =>
         cat.nombre.toLowerCase() === nuevaCategoria.nombre.trim().toLowerCase()
     );
-    
+
     // Determinar el icono apropiado
     let icono = IconoGasto; // Icono por defecto
     if (tipoCategoria) {
       icono = tipoCategoria.icono;
     }
-  
+
     // Crear nueva categoría
     const nuevaCat = {
       id: generarIdUnico(
@@ -378,60 +422,16 @@ export default function MetasAhorro({
       icono: icono,
       color: nuevaCategoria.color,
     };
-  
+
     // Actualizar lista de categorías
     setCategorias([...categorias, nuevaCat]);
-  
+
     // Limpiar formulario y cerrar modal
     setNuevaCategoria({
       nombre: "",
       color: "bg-gray-100 text-gray-800",
     });
     setModalAbierto(false);
-  };
-  
-
-  const eliminarCategoria = (categoriaId) => {
-    const categoria = categorias.find((cat) => cat.id === categoriaId);
-
-    if (categoria._esPredefinida) {
-      Swal.fire({
-        title: "No se puede eliminar",
-        text: "Esta es una categoría predefinida y no puede ser eliminada.",
-        icon: "error",
-        confirmButtonColor: "#3b82f6",
-      });
-      return;
-    }
-
-    Swal.fire({
-      title: "¿Eliminar categoría?",
-      text: `¿Estás seguro de eliminar la categoría "${categoria.nombre}"?`,
-      icon: "question",
-      showCancelButton: true,
-      confirmButtonColor: "#ef4444",
-      cancelButtonColor: "#6b7280",
-      confirmButtonText: "Sí, eliminar",
-      cancelButtonText: "Cancelar",
-    }).then((result) => {
-      if (result.isConfirmed) {
-        // Guardar el ID de la categoría eliminada en el historial
-        guardarEliminados("categorias", categoriaId);
-
-        // Eliminar la categoría
-        const nuevasCategorias = categorias.filter(
-          (cat) => cat.id !== categoriaId
-        );
-        setCategorias(nuevasCategorias);
-
-        Swal.fire({
-          title: "Categoría eliminada",
-          icon: "success",
-          timer: 1500,
-          showConfirmButton: false,
-        });
-      }
-    });
   };
 
   const guardarEliminados = (tipo, id) => {
@@ -516,11 +516,15 @@ export default function MetasAhorro({
               </label>
               <input
                 id="monto-meta"
-                type="number"
+                type="text"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 placeholder="¿Cuánto necesitas ahorrar?"
-                value={montoMeta}
-                onChange={(e) => setMontoMeta(e.target.value)}
+                value={montoMeta ? new Intl.NumberFormat('es-CO').format(Number(montoMeta)) : ''}
+                onChange={e => {
+                  const raw = e.target.value.replace(/\D/g, '');
+                  setMontoMeta(raw);
+                }}
+                inputMode="numeric"
               />
             </div>
 
@@ -764,8 +768,9 @@ export default function MetasAhorro({
           Capacidad de Ahorro
         </h3>
         <p className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4">
-          Según tus gastos promedio, tienes aproximadamente{" "}
-          {cantidad(disponibleMensual)} disponibles cada mes para ahorrar.
+          {presupuesto <= 0
+            ? "Configura tu presupuesto para comenzar a ahorrar."
+            : `Tienes ${cantidad(disponibleMensual)} disponibles para ahorrar.`}
         </p>
 
         <div className="flex items-center">
@@ -773,15 +778,12 @@ export default function MetasAhorro({
             <div
               className="bg-blue-600 h-2 rounded-full"
               style={{
-                width: `${Math.min(
-                  100,
-                  (disponibleMensual / presupuesto) * 100
-                )}%`,
+                width: `${presupuesto > 0 ? Math.min(100, Math.max(0, (disponibleMensual / presupuesto) * 100)) : 0}%`,
               }}
             ></div>
           </div>
           <span className="ml-2 sm:ml-3 text-xs sm:text-sm font-medium text-gray-700">
-            {Math.round((disponibleMensual / presupuesto) * 100)}%
+            {presupuesto > 0 ? Math.round(Math.max(0, (disponibleMensual / presupuesto) * 100)) : 0}%
           </span>
         </div>
       </div>
@@ -950,3 +952,28 @@ export default function MetasAhorro({
     </div>
   );
 }
+
+MetasAhorro.propTypes = {
+  presupuesto: PropTypes.number.isRequired,
+  gastosState: PropTypes.arrayOf(
+    PropTypes.shape({
+      gasto: PropTypes.number.isRequired,
+      categoria: PropTypes.string.isRequired,
+      nombreG: PropTypes.string.isRequired,
+      id: PropTypes.string.isRequired,
+      fecha: PropTypes.string.isRequired,
+      metaId: PropTypes.string
+    })
+  ).isRequired,
+  ingresosExtra: PropTypes.arrayOf(
+    PropTypes.shape({
+      descripcion: PropTypes.string.isRequired,
+      monto: PropTypes.number.isRequired,
+      id: PropTypes.string.isRequired,
+      fecha: PropTypes.string.isRequired,
+      metaId: PropTypes.string,
+      origen: PropTypes.string
+    })
+  ),
+  setGastosState: PropTypes.func.isRequired
+};

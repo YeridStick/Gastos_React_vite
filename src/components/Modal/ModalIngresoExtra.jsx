@@ -65,12 +65,20 @@ const ModalIngresoExtra = ({ setModalIngreso, actualizarPresupuesto }) => {
             </label>
             <input
               id="cantidad"
-              type="number"
+              type="text"
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Ingrese la cantidad"
-              value={ingreso}
-              onChange={e => setIngreso(e.target.value)}
+              value={ingreso ? Number(ingreso).toLocaleString('es-CO') : ''}
+              onChange={e => {
+                const raw = e.target.value.replace(/\D/g, '');
+                setIngreso(raw);
+              }}
             />
+            {ingreso && (
+              <div className="text-xs text-gray-500 mt-1">
+                {new Intl.NumberFormat('es-CO').format(Number(ingreso))} COP
+              </div>
+            )}
           </div>
           
           <div className="mb-6">

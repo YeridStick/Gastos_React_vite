@@ -1,8 +1,9 @@
-import React from 'react';
+import { Link } from 'react-router-dom';
 import Gastos from './Gastos';
+import PropTypes from 'prop-types';
 
 export default function ListadoGastos({ 
-  modal, 
+
   gastosState, 
   setGastoEditar, 
   editar, 
@@ -11,7 +12,7 @@ export default function ListadoGastos({
   filtros
 }) {
   // Determinamos qué datos mostrar según el filtro
-  let datosAMostrar = filtros !== "" ? gastosFiltrados : gastosState;
+  let datosAMostrar = (filtros === "Todos" || filtros === "") ? gastosState : gastosFiltrados;
   
   // Si el filtro no es específicamente "Ahorro", excluimos los gastos de ahorro de la vista general
   if (filtros !== "Ahorro") {
@@ -23,9 +24,10 @@ export default function ListadoGastos({
   // Para mostrar mensaje informativo sobre los gastos de ahorro
   const gastosAhorro = gastosState.filter(gasto => gasto.categoria === "Ahorro").length;
   const mostrarMensajeAhorro = gastosAhorro > 0 && filtros !== "Ahorro";
+  
 
   return(
-    <div className={`mx-auto mt-8 w-full ${modal && "hidden"} max-sm:mt-4 pb-8`}>
+    <div className="mx-auto mt-8 w-full">
       {/* Encabezado según si hay gastos o no */}
       {gastosState.length ? (
         <h2 className="font-black text-3xl text-center mb-6">
@@ -33,11 +35,22 @@ export default function ListadoGastos({
           <span className="text-blue-700 ml-1.5">Gastos</span>
         </h2>
       ) : (
-        <div className="mx-auto mt-20 max-md:mt-4 w-full h-max overflow-y-auto">
-          <h2 className="font-black text-3xl text-center">
-            Añade un
-            <span className="text-blue-700 ml-1.5">Gastos</span>
-          </h2>
+        <div className="bg-white rounded-lg shadow-md p-6 text-center flex flex-col items-center">
+          <svg className="h-10 w-10 text-blue-400 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          <h3 className="text-lg font-semibold text-gray-800 mb-2">¡Personalizar tus categorías!</h3>
+          <p className="text-gray-500 mb-4">Recuerda que puedes crear nuevas categorías, para registrar gastos mas específicos.</p>
+          {/* Aquí podrías agregar un botón para abrir el modal de crear categoría si lo deseas */}
+          <Link
+            to="/categorias"
+            className={`p-4 flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors duration-150 bg-blue-500 hover:bg-blue-700 transition-all text-white font-bold justify-center`}
+          >
+            <svg className="mr-3 h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+            Categorías
+          </Link>
         </div>
       )}
 
@@ -60,7 +73,7 @@ export default function ListadoGastos({
             <div>
               <p className="font-medium">Los gastos de ahorro están ocultos</p>
               <p className="mt-1 text-sm">
-                {gastosAhorro} {gastosAhorro === 1 ? 'gasto de ahorro' : 'gastos de ahorro'} se gestionan exclusivamente desde la sección de "Gestión de Ahorro".
+                {gastosAhorro} {gastosAhorro === 1 ? 'gasto de ahorro' : 'gastos de ahorro'} se gestionan exclusivamente desde la sección de &quot;Gestión de Ahorro&quot;.
                 {filtros === "" && " Selecciona el filtro \"Ahorro\" para verlos."}
               </p>
             </div>
@@ -95,3 +108,29 @@ export default function ListadoGastos({
     </div>
   )
 }
+
+ListadoGastos.propTypes = {
+  modal: PropTypes.bool,
+  gastosState: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      nombreG: PropTypes.string.isRequired,
+      gasto: PropTypes.number.isRequired,
+      categoria: PropTypes.string.isRequired,
+      fecha: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired
+    })
+  ).isRequired,
+  setGastoEditar: PropTypes.func.isRequired,
+  editar: PropTypes.func.isRequired,
+  eliminar: PropTypes.func.isRequired,
+  gastosFiltrados: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      nombreG: PropTypes.string.isRequired,
+      gasto: PropTypes.number.isRequired,
+      categoria: PropTypes.string.isRequired,
+      fecha: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired
+    })
+  ).isRequired,
+  filtros: PropTypes.string.isRequired
+};

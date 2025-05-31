@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import PropTypes from "prop-types";
 
 export default function Filtros({ filtros, setFiltros }) {
   const [categorias, setCategorias] = useState([
@@ -57,11 +58,11 @@ export default function Filtros({ filtros, setFiltros }) {
           {categorias.map((categoria) => (
             <button
               key={categoria.id}
-              onClick={() => setFiltros(categoria.id)}
+              onClick={() => setFiltros(categoria.nombre)}
               className={`
                 px-3 py-2 rounded-md text-sm font-medium transition-colors
                 ${
-                  filtros === categoria.id
+                  filtros === categoria.nombre
                     ? 'bg-blue-100 text-blue-800 ring-2 ring-blue-600'
                     : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
                 }
@@ -75,3 +76,8 @@ export default function Filtros({ filtros, setFiltros }) {
     </div>
   )
 }
+
+Filtros.propTypes = {
+  filtros: PropTypes.string.isRequired,
+  setFiltros: PropTypes.func.isRequired,
+};

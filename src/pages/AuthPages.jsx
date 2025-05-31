@@ -1,14 +1,17 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
+import PropTypes from 'prop-types';
 
-// Importar el servicio de sincronización mejorado
+// Importar servicios
 import { syncInitialDataAfterLogin } from "../services/syncService";
+import { requestVerificationCode, verifyCode, registerUser } from "../services/authService";
+import { STORAGE_KEYS } from "../config/config";
 
-const API_BASE_URL = "https://g-gastosback-production.up.railway.app/api";
+const API_BASE_URL = "http://192.168.80.26:8081/api";
 
 const AuthPages = ({ onLoginSuccess }) => {
-  const [isLogin, setIsLogin] = useState(true); // Por defecto muestra el inicio de sesión
+  const [isLogin, setIsLogin] = useState(true);
   const [isCodeSent, setIsCodeSent] = useState(false);
   const [verificationCode, setVerificationCode] = useState("");
   const [countdown, setCountdown] = useState(0);
@@ -20,16 +23,14 @@ const AuthPages = ({ onLoginSuccess }) => {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
-  // Verificar si el usuario quiere preservar datos (cuando viene de la pantalla Welcome)
+  // Verificar si el usuario quiere preservar datos
   useEffect(() => {
-    const shouldPreserveData = localStorage.getItem("preserveDataOnSignup");
+    const shouldPreserveData = localStorage.getItem(STORAGE_KEYS.PRESERVE_DATA);
     if (shouldPreserveData === "true") {
       setPreserveData(true);
-      // Limpiar flag después de leerlo
-      localStorage.removeItem("preserveDataOnSignup");
+      localStorage.removeItem(STORAGE_KEYS.PRESERVE_DATA);
     }
     
-    // Si estamos en la página de registro pero el estado dice que es login
     if (window.location.pathname === "/register" && isLogin) {
       setIsLogin(false);
     }
@@ -55,28 +56,15 @@ const AuthPages = ({ onLoginSuccess }) => {
     setIsLoading(true);
     
     try {
-      const response = await fetch(`${API_BASE_URL}/users/register`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: credentials.email,
-          name: credentials.name,
-          userType: "PERSONAL"
-        }),
-      });
+      const data = await registerUser(credentials);
 
-      const data = await response.json();
-
-      if (response.ok) {
+      if (data.success) {
         Swal.fire({
           title: "¡Registro exitoso!",
           text: "A continuación solicitaremos un código de verificación",
           icon: "success",
           confirmButtonColor: "#3b82f6",
         });
-        // Si el registro es exitoso, solicitamos el código
         requestVerificationCode();
       } else {
         Swal.fire({
@@ -100,33 +88,26 @@ const AuthPages = ({ onLoginSuccess }) => {
   };
 
   // Función para solicitar código de verificación
-  const requestVerificationCode = async (e) => {
+  const handleRequestCode = async (e) => {
     if (e) e.preventDefault();
     setIsLoading(true);
     
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/request-code`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: credentials.email
-        }),
-      });
+      const data = await requestVerificationCode(credentials.email);
 
-      const data = await response.json();
-
-      if (response.ok) {
+      // Check if the response was successful based on the HTTP status code
+      // and optionally check for the expected message in the response body
+      if (data && data.message) { // Assuming the server returns { message: "..." } on success
         setIsCodeSent(true);
         setCountdown(300); // 5 minutos en segundos
         Swal.fire({
           title: "¡Código enviado!",
-          text: "Revisa tu correo electrónico y escribe el código que te enviamos",
+          text: data.message, // Use the message from the server response
           icon: "success",
           confirmButtonColor: "#3b82f6",
         });
       } else {
+        // Handle cases where response is not ok or doesn't contain the expected message
         Swal.fire({
           title: "Error",
           text: data.message || "No se pudo enviar el código de verificación",
@@ -148,7 +129,7 @@ const AuthPages = ({ onLoginSuccess }) => {
   };
 
   // Función para verificar el código
-  const verifyCode = async (e) => {
+  const handleVerifyCode = async (e) => {
     e.preventDefault();
     
     if (!verificationCode) {
@@ -164,20 +145,9 @@ const AuthPages = ({ onLoginSuccess }) => {
     setIsLoading(true);
     
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/verify-code`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: credentials.email,
-          code: parseInt(verificationCode)
-        }),
-      });
+      const data = await verifyCode(credentials.email, verificationCode);
 
-      const data = await response.json();
-
-      if (response.ok && data.token) {
+      if (data.token) {
         // Mostrar mensaje de sincronización en proceso
         Swal.fire({
           title: "Sincronizando",
@@ -191,10 +161,6 @@ const AuthPages = ({ onLoginSuccess }) => {
           }
         });
 
-        // Guardar el token y email del usuario en localStorage
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("userEmail", credentials.email);
-        
         let syncSuccess = false;
         
         // Si se eligió preservar datos, primero sincronizamos al servidor los datos locales
@@ -275,17 +241,15 @@ const AuthPages = ({ onLoginSuccess }) => {
     const dataToSync = {
       email: email,
       data: {
-        ObjetosGastos: JSON.parse(localStorage.getItem("ObjetosGastos") || "[]"),
-        MetasAhorro: JSON.parse(localStorage.getItem("MetasAhorro") || "[]"),
-        categorias: JSON.parse(localStorage.getItem("categorias") || "[]"),
-        recordatorios: JSON.parse(localStorage.getItem("recordatorios") || "[]"),
-        PresupuestoLS: JSON.parse(localStorage.getItem("PresupuestoLS") || "0"),
-        IngresosExtra: JSON.parse(localStorage.getItem("IngresosExtra") || "[]")
+        [STORAGE_KEYS.GASTOS]: JSON.parse(localStorage.getItem(STORAGE_KEYS.GASTOS) || "[]"),
+        [STORAGE_KEYS.METAS]: JSON.parse(localStorage.getItem(STORAGE_KEYS.METAS) || "[]"),
+        [STORAGE_KEYS.CATEGORIAS]: JSON.parse(localStorage.getItem(STORAGE_KEYS.CATEGORIAS) || "[]"),
+        [STORAGE_KEYS.RECORDATORIOS]: JSON.parse(localStorage.getItem(STORAGE_KEYS.RECORDATORIOS) || "[]"),
+        [STORAGE_KEYS.PRESUPUESTO]: JSON.parse(localStorage.getItem(STORAGE_KEYS.PRESUPUESTO) || "0"),
+        [STORAGE_KEYS.INGRESOS]: JSON.parse(localStorage.getItem(STORAGE_KEYS.INGRESOS) || "[]")
       },
       timestamp: timestamp
     };
-    
-    console.log("Subiendo datos locales al servidor...", dataToSync);
     
     // Enviar datos al servidor
     const response = await fetch(`${API_BASE_URL}/sync/upload`, {
@@ -302,9 +266,7 @@ const AuthPages = ({ onLoginSuccess }) => {
       throw new Error(errorData.message || "Error al sincronizar datos");
     }
     
-    // Guardar timestamp de última sincronización
-    localStorage.setItem("lastSyncTimestamp", timestamp.toString());
-    console.log("Datos locales subidos correctamente");
+    localStorage.setItem(STORAGE_KEYS.LAST_SYNC, timestamp.toString());
     return true;
   };
 
@@ -348,7 +310,7 @@ const AuthPages = ({ onLoginSuccess }) => {
               )}
             </div>
 
-            <form className="mt-8 space-y-6" onSubmit={isLogin ? requestVerificationCode : handleRegister}>
+            <form className="mt-8 space-y-6" onSubmit={isLogin ? handleRequestCode : handleRegister}>
               <div className="rounded-md shadow-sm -space-y-px">
                 <div>
                   <label htmlFor="email" className="sr-only">Correo electrónico</label>
@@ -436,7 +398,7 @@ const AuthPages = ({ onLoginSuccess }) => {
               </p>
             </div>
           
-            <form className="mt-8 space-y-6" onSubmit={verifyCode}>
+            <form className="mt-8 space-y-6" onSubmit={handleVerifyCode}>
               <div>
                 <div className="mt-1">
                   <input
@@ -461,7 +423,7 @@ const AuthPages = ({ onLoginSuccess }) => {
               <div className="flex items-center justify-between">
                 <button
                   type="button"
-                  onClick={requestVerificationCode}
+                  onClick={handleRequestCode}
                   disabled={countdown > 0 || isLoading}
                   className={`text-sm font-medium ${
                     countdown > 0 || isLoading
@@ -503,6 +465,10 @@ const AuthPages = ({ onLoginSuccess }) => {
       </div>
     </div>
   );
+};
+
+AuthPages.propTypes = {
+  onLoginSuccess: PropTypes.func
 };
 
 export default AuthPages;

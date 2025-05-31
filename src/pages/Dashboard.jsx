@@ -3,6 +3,7 @@ import { CircularProgressbar, buildStyles } from "react-circular-progressbar";
 import "react-circular-progressbar/dist/styles.css";
 import { cantidad } from "../helpers/index";
 import Swal from "sweetalert2";
+import PropTypes from "prop-types";
 
 // Importación de iconos para el dashboard
 import IconoAhorro from "../assets/img/icono_ahorro.svg";
@@ -15,46 +16,164 @@ import IconoEducacion from "../assets/img/icono_suscripciones.svg";
 import HistorialEliminados from "../components/HistorialEliminados";
 
 // Componente para mostrar tarjetas en el Dashboard
-const DashboardCard = ({ title, amount, color, icon, trend, percentage }) => {
+const DashboardCard = ({ title, amount, icon, trend, percentage }) => {
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden">
-      <div className="p-3 sm:p-5">
-        <div className="flex items-center justify-between flex-wrap gap-1">
-          <h2 className="text-base sm:text-lg font-medium text-gray-900">{title}</h2>
-          {trend && (
-            <span
-              className={`px-1.5 py-0.5 text-xs font-medium rounded-full ${
-                trend === "up"
-                  ? "bg-green-100 text-green-800"
-                  : "bg-rose-100 text-rose-800"
-              }`}
-            >
-              {trend === "up" ? "+" : "-"}
-              {percentage}% vs anterior
-            </span>
-          )}
-        </div>
-        <div className="mt-2 sm:mt-4 flex items-center">
-          {icon && <img src={icon} alt={title} className="h-8 w-8 sm:h-10 sm:w-10 mr-2 sm:mr-3" />}
-          <span className="text-xl sm:text-3xl font-bold text-gray-900 truncate">{amount}</span>
-        </div>
+    <div className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100 p-6">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-base sm:text-lg font-medium text-gray-700">{title}</h2>
+        {trend && (
+          <span
+            className={`px-2 py-1 text-xs font-medium rounded-full ${
+              trend === "up"
+                ? "bg-emerald-50 text-emerald-700"
+                : "bg-rose-50 text-rose-700"
+            }`}
+          >
+            {trend === "up" ? "+" : "-"}
+            {percentage}%
+          </span>
+        )}
+      </div>
+      <div className="flex items-center gap-3">
+        {icon && (
+          <div className="p-2 bg-gray-50 rounded-lg">
+            <img src={icon} alt={title} className="h-6 w-6 sm:h-8 sm:w-8" />
+          </div>
+        )}
+        <span className="text-xl sm:text-2xl font-bold text-gray-900">{amount}</span>
       </div>
     </div>
   );
 };
 
+DashboardCard.propTypes = {
+  title: PropTypes.string.isRequired,
+  amount: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  color: PropTypes.string,
+  icon: PropTypes.string,
+  trend: PropTypes.string,
+  percentage: PropTypes.number,
+};
+
+// Componente para selector de mes
+const MonthSelector = ({ currentDate, onChange }) => {
+  const meses = [
+    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+  ];
+  
+  const currentMonth = currentDate.getMonth();
+  const currentYear = currentDate.getFullYear();
+
+  // Generar años desde el año actual hacia atrás (hasta 3 años atrás)
+  const years = [];
+  const thisYear = new Date().getFullYear();
+  for (let i = 0; i < 4; i++) {
+    years.push(thisYear - i);
+  }
+  
+  const handleMonthChange = (e) => {
+    const newDate = new Date(currentDate);
+    newDate.setMonth(parseInt(e.target.value));
+    onChange(newDate);
+  };
+  
+  const handleYearChange = (e) => {
+    const newDate = new Date(currentDate);
+    newDate.setFullYear(parseInt(e.target.value));
+    onChange(newDate);
+  };
+  
+  return (
+    <div className="flex items-center space-x-2">
+      <select 
+        value={currentMonth} 
+        onChange={handleMonthChange}
+        className="bg-white border border-gray-300 text-gray-700 text-sm rounded-md px-3 py-1.5 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+      >
+        {meses.map((mes, index) => (
+          <option key={index} value={index}>
+            {mes}
+          </option>
+        ))}
+      </select>
+      <select 
+        value={currentYear} 
+        onChange={handleYearChange}
+        className="bg-white border border-gray-300 text-gray-700 text-sm rounded-md px-3 py-1.5 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+      >
+        {years.map(year => (
+          <option key={year} value={year}>
+            {year}
+          </option>
+        ))}
+      </select>
+      <button 
+        onClick={() => onChange(new Date())}
+        className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200"
+        title="Ir al mes actual"
+      >
+        Hoy
+      </button>
+    </div>
+  );
+};
+
+MonthSelector.propTypes = {
+  currentDate: PropTypes.instanceOf(Date).isRequired,
+  onChange: PropTypes.func.isRequired,
+};
+
+// Componente para cambiar entre vistas (mensual, total)
+const ViewToggle = ({ currentView, onChange }) => {
+  return (
+    <div className="inline-flex rounded-md shadow-sm">
+      <button
+        type="button"
+        onClick={() => onChange('monthly')}
+        className={`relative inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-l-md focus:z-10 focus:outline-none ${
+          currentView === 'monthly' 
+            ? 'bg-blue-600 text-white' 
+            : 'bg-white text-gray-700 hover:bg-gray-50'
+        }`}
+      >
+        Mes actual
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange('total')}
+        className={`relative inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-r-md focus:z-10 focus:outline-none ${
+          currentView === 'total' 
+            ? 'bg-blue-600 text-white' 
+            : 'bg-white text-gray-700 hover:bg-gray-50'
+        }`}
+      >
+        Vista global
+      </button>
+    </div>
+  );
+};
+
+ViewToggle.propTypes = {
+  currentView: PropTypes.oneOf(['monthly', 'total']).isRequired,
+  onChange: PropTypes.func.isRequired
+};
+
 export default function Dashboard({
   presupuesto,
+  // eslint-disable-next-line no-unused-vars
   setPresupuesto,
   gastosState,
-  actualizarPresupuesto,
   ingresosExtra = [],
-  editarIngreso,
   eliminarIngreso,
   setModalIngreso,
-  setModalEditar,
-  actualizarPresupuestoTotal
+  setModalEditar
 }) {
+  // Estados para seguimiento mensual y vistas
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [currentView, setCurrentView] = useState('monthly'); // 'monthly' o 'total'
+  
+  // Estados de datos
   const [disponible, setDisponible] = useState(0);
   const [gastado, setGastado] = useState(0);
   const [porcentaje, setPorcentaje] = useState(0);
@@ -63,6 +182,11 @@ export default function Dashboard({
   const [mostrarMenu, setMostrarMenu] = useState(false);
   const [actividadReciente, setActividadReciente] = useState([]);
   const menuRef = useRef(null);
+  
+  // Estados para datos filtrados por mes
+  const [gastosFiltrados, setGastosFiltrados] = useState([]);
+  const [ingresosFiltrados, setIngresosFiltrados] = useState([]);
+  const [presupuestoMensual, setPresupuestoMensual] = useState(0);
 
   // Cerrar el menú al hacer clic fuera de él
   useEffect(() => {
@@ -89,7 +213,7 @@ export default function Dashboard({
         // Crear un objeto con información de cada categoría
         const infoObj = {};
         categorias.forEach((cat) => {
-          infoObj[cat.id] = {
+          infoObj[cat.nombre] = {
             nombre: cat.nombre,
             color: cat.color || "bg-gray-100 text-gray-800",
             icono: getIconoPorCategoria(cat.id),
@@ -102,6 +226,60 @@ export default function Dashboard({
       console.error("Error al cargar categorías:", error);
     }
   }, []);
+
+  // Filtrar datos según el mes y año seleccionados
+  useEffect(() => {
+    const filtrarDatosPorMes = () => {
+      const year = selectedDate.getFullYear();
+      const month = selectedDate.getMonth();
+      
+      // Función para verificar si un timestamp pertenece al mes seleccionado
+      const isInSelectedMonth = (timestamp) => {
+        const date = new Date(timestamp);
+        return date.getFullYear() === year && date.getMonth() === month;
+      };
+      
+      // Filtrar gastos del mes seleccionado
+      const gastosMes = currentView === 'monthly' 
+        ? gastosState.filter(gasto => isInSelectedMonth(gasto.fecha))
+        : gastosState;
+      
+      // Filtrar ingresos del mes seleccionado
+      const ingresosMes = currentView === 'monthly'
+        ? ingresosExtra.filter(ingreso => isInSelectedMonth(ingreso.fecha))
+        : ingresosExtra;
+      
+      setGastosFiltrados(gastosMes);
+      setIngresosFiltrados(ingresosMes);
+      
+      // Calcular presupuesto mensual (para la vista mensual)
+      if (currentView === 'monthly') {
+        // Si estamos en el mes actual, usar el presupuesto actual
+        const ahora = new Date();
+        const esElMesActual = ahora.getMonth() === month && ahora.getFullYear() === year;
+        
+        if (esElMesActual) {
+          setPresupuestoMensual(presupuesto);
+        } else {
+          // Para meses pasados, calcular presupuesto aproximado
+          // Esto es una simplificación - se podría mejorar según tu lógica de negocio
+          const totalIngresosMes = ingresosMes.reduce((sum, ingreso) => sum + ingreso.monto, 0);
+          
+          // Buscar el ingreso más alto del mes (posible presupuesto base)
+          const posiblePresupuestoBase = ingresosMes.length > 0 
+            ? Math.max(...ingresosMes.map(i => i.monto))
+            : presupuesto / 12; // Aproximación si no hay datos
+            
+          setPresupuestoMensual(posiblePresupuestoBase + totalIngresosMes);
+        }
+      } else {
+        // En vista global, usar el presupuesto total
+        setPresupuestoMensual(presupuesto);
+      }
+    };
+    
+    filtrarDatosPorMes();
+  }, [selectedDate, gastosState, ingresosExtra, presupuesto, currentView]);
 
   // Función para obtener el icono basado en el ID de la categoría
   const getIconoPorCategoria = (categoriaId) => {
@@ -126,7 +304,7 @@ export default function Dashboard({
   // Combinar gastos e ingresos en actividad reciente
   useEffect(() => {
     // Convertir gastos al formato de actividad
-    const gastosFormateados = gastosState.map((gasto) => ({
+    const gastosFormateados = gastosFiltrados.map((gasto) => ({
       id: gasto.id,
       tipo: "gasto",
       nombre: gasto.nombreG,
@@ -136,7 +314,7 @@ export default function Dashboard({
     }));
 
     // Convertir ingresos al formato de actividad
-    const ingresosFormateados = ingresosExtra.map((ingreso) => ({
+    const ingresosFormateados = ingresosFiltrados.map((ingreso) => ({
       id: ingreso.id,
       tipo: "ingreso",
       nombre: ingreso.descripcion || "Ingreso adicional",
@@ -151,42 +329,48 @@ export default function Dashboard({
       .slice(0, 8); // Mostrar solo las 8 actividades más recientes
 
     setActividadReciente(todasActividades);
-  }, [gastosState, ingresosExtra]);
+  }, [gastosFiltrados, ingresosFiltrados]);
 
-  // Calcular datos del dashboard
+  // Calcular datos del dashboard basados en datos filtrados
   useEffect(() => {
     const calcularTotales = () => {
-      const sumaGasto = gastosState.reduce(
-        (total, gasto) => gasto.gasto + total,
+      const sumaGasto = gastosFiltrados.reduce(
+        (total, gasto) => Number(gasto.gasto) + total,
         0
       );
-      const totalDisponible = presupuesto - sumaGasto;
+      
+      // Calculate total available amount based on total budget and all expenses (like Gestión de Ahorro)
+      const totalGastosGlobal = gastosState.reduce(
+        (total, gasto) => Number(gasto.gasto) + total,
+        0
+      );
+      const totalDisponible = Math.max(0, presupuesto - totalGastosGlobal);
 
-      // Calcular porcentaje de presupuesto usado
+      // Calcular porcentaje de presupuesto usado (still based on monthly for progress bar)
       const nuevoPorcentaje =
-        presupuesto > 0
-          ? Math.min(100, Math.round((sumaGasto * 100) / presupuesto))
+        presupuestoMensual > 0
+          ? Math.min(100, Math.round((sumaGasto * 100) / presupuestoMensual))
           : 0;
 
       // Agrupar gastos por categoría
       const categorias = {};
-      gastosState.forEach((gasto) => {
+      gastosFiltrados.forEach((gasto) => {
         if (categorias[gasto.categoria]) {
-          categorias[gasto.categoria] += gasto.gasto;
+          categorias[gasto.categoria] += Number(gasto.gasto);
         } else {
-          categorias[gasto.categoria] = gasto.gasto;
+          categorias[gasto.categoria] = Number(gasto.gasto);
         }
       });
 
       // Actualizar estados
       setDisponible(totalDisponible);
-      setGastado(sumaGasto);
+      setGastado(sumaGasto); // Gastado still shows monthly/filtered expenses
       setPorcentaje(nuevoPorcentaje);
       setGastosPorCategoria(categorias);
     };
 
     calcularTotales();
-  }, [gastosState, presupuesto]);
+  }, [gastosFiltrados, presupuestoMensual, gastosState, presupuesto]); // Added gastosState and presupuesto to dependency array
 
   // Determinar el color del gráfico según disponibilidad
   const getProgressBarColor = () => {
@@ -195,24 +379,13 @@ export default function Dashboard({
     return "#ef4444"; // Rojo para 75% o más
   };
 
-  // Calcular fecha para tarjeta
-  const obtenerMesActual = () => {
+  // Obtener texto para la fecha seleccionada
+  const obtenerMesSeleccionado = () => {
     const meses = [
-      "Enero",
-      "Febrero",
-      "Marzo",
-      "Abril",
-      "Mayo",
-      "Junio",
-      "Julio",
-      "Agosto",
-      "Septiembre",
-      "Octubre",
-      "Noviembre",
-      "Diciembre",
+      "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+      "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
     ];
-    const fecha = new Date();
-    return `${meses[fecha.getMonth()]} ${fecha.getFullYear()}`;
+    return `${meses[selectedDate.getMonth()]} ${selectedDate.getFullYear()}`;
   };
 
   // Abrir modal para agregar ingreso
@@ -251,18 +424,21 @@ export default function Dashboard({
     return `${fecha.getDate()}/${fecha.getMonth() + 1}/${fecha.getFullYear()}`;
   };
 
+  // En el progreso del presupuesto, calcula el color del porcentaje
+  const progressColor = getProgressBarColor();
+
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-6 sm:space-y-8">
       {/* Encabezado del Dashboard con menú de opciones */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center space-x-2">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-y-3 sm:gap-y-0 bg-white p-4 sm:p-6 rounded-xl shadow-sm">
+        <div className="flex items-center space-x-3">
           <h2 className="text-xl sm:text-2xl font-semibold text-gray-800">Dashboard</h2>
           
           {/* Menú de opciones avanzadas */}
           <div className="relative" ref={menuRef}>
             <button 
               onClick={() => setMostrarMenu(!mostrarMenu)}
-              className="p-1 text-gray-500 hover:text-gray-700 focus:outline-none"
+              className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
               aria-label="Opciones avanzadas"
             >
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -272,14 +448,14 @@ export default function Dashboard({
             
             {/* Menú desplegable */}
             {mostrarMenu && (
-              <div className="absolute left-0 mt-2 w-48 rounded-md shadow-lg bg-white z-10 ring-1 ring-black ring-opacity-5">
+              <div className="absolute left-0 mt-2 w-48 rounded-lg shadow-lg bg-white z-10 ring-1 ring-black ring-opacity-5">
                 <div className="py-1" role="menu" aria-orientation="vertical">
                   <button
                     onClick={() => {
                       setMostrarMenu(false);
                       setModalEditar(true);
                     }}
-                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                     role="menuitem"
                   >
                     Modificar presupuesto total
@@ -290,111 +466,88 @@ export default function Dashboard({
           </div>
         </div>
         
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={handleAgregarIngreso}
-            className="px-2 py-1 sm:px-3 sm:py-1.5 bg-green-600 text-white text-xs sm:text-sm font-medium rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 flex items-center"
-          >
-            <svg
-              className="w-3 h-3 sm:w-4 sm:h-4 mr-1"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-              ></path>
-            </svg>
-            Agregar Ingreso
-          </button>
-          <span className="px-2 py-0.5 sm:px-3 sm:py-1 bg-blue-100 text-blue-800 rounded-full text-xs sm:text-sm font-medium">
-            {obtenerMesActual()}
-          </span>
+        <div className="flex flex-wrap items-center gap-3">
+          <ViewToggle 
+            currentView={currentView} 
+            onChange={setCurrentView} 
+          />
+          
+          {currentView === 'monthly' && (
+            <MonthSelector 
+              currentDate={selectedDate}
+              onChange={setSelectedDate}
+            />
+          )}
         </div>
+      </div>
+      
+      {/* Acciones adicionales */}
+      <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm">
+        <span className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full text-sm font-medium">
+          {currentView === 'monthly' ? obtenerMesSeleccionado() : 'Vista Global'}
+        </span>
+        
+        <button
+          onClick={handleAgregarIngreso}
+          className="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-colors flex items-center gap-2"
+        >
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+            />
+          </svg>
+          Agregar Ingreso
+        </button>
       </div>
 
       {/* Tarjetas de información resumida */}
-      <div className="grid grid-cols-1 gap-3 sm:gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-6">
         <DashboardCard
-          title="Presupuesto Total"
-          amount={cantidad(presupuesto)}
+          title={currentView === 'monthly' ? "Presupuesto Mensual" : "Presupuesto Total"}
+          amount={'$' + new Intl.NumberFormat('es-CO').format(Number(presupuestoMensual))}
           color="blue"
         />
         <DashboardCard
           title="Disponible"
-          amount={cantidad(disponible)}
+          amount={<span className={`text-xl sm:text-2xl font-bold ${disponible < 0 ? 'text-red-600' : 'text-green-600'}`}> 
+            {disponible < 0 ? '-' : ''}{'$' + new Intl.NumberFormat('es-CO').format(Math.abs(Number(disponible)))}
+          </span>}
           color={disponible >= 0 ? "green" : "red"}
         />
         <DashboardCard
           title="Gastado"
-          amount={cantidad(gastado)}
+          amount={'$' + new Intl.NumberFormat('es-CO').format(Number(gastado))}
           color="gray"
-          trend="down"
-          percentage="12"
         />
       </div>
 
       {/* Gráfico de progreso y detalles */}
-      <div className="grid grid-cols-1 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
         <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">
           <h2 className="text-base sm:text-lg font-medium text-gray-900 mb-3 sm:mb-4">
             Progreso del Presupuesto
           </h2>
           <div className="flex flex-col items-center gap-4 sm:gap-6">
-            <div className="w-32 h-32 sm:w-40 sm:h-40">
+            <div className="w-32 h-32 sm:w-40 sm:h-40 flex items-center justify-center">
               <CircularProgressbar
                 value={porcentaje}
-                text={`${porcentaje}%`}
+                text={`${Math.min(100, Math.max(0, porcentaje))}%`}
                 styles={buildStyles({
-                  pathColor: getProgressBarColor(),
-                  textColor: "#1f2937",
+                  pathColor: progressColor,
+                  textColor: progressColor,
                   trailColor: "#f3f4f6",
                 })}
               />
             </div>
-            <div className="w-full">
-              <div className="grid grid-cols-1 gap-3 sm:gap-4">
-                <div>
-                  <div className="flex items-center mb-1">
-                    <div className="w-3 h-3 rounded-full bg-blue-500 mr-2"></div>
-                    <span className="text-xs sm:text-sm font-medium text-gray-700">
-                      Presupuesto Total
-                    </span>
-                  </div>
-                  <p className="ml-5 text-base sm:text-lg font-semibold text-gray-900">
-                    {cantidad(presupuesto)}
-                  </p>
-                </div>
-
-                <div>
-                  <div className="flex items-center mb-1">
-                    <div className="w-3 h-3 rounded-full bg-green-500 mr-2"></div>
-                    <span className="text-xs sm:text-sm font-medium text-gray-700">
-                      Disponible
-                    </span>
-                  </div>
-                  <p className="ml-5 text-base sm:text-lg font-semibold text-gray-900">
-                    {cantidad(disponible)}
-                  </p>
-                </div>
-
-                <div>
-                  <div className="flex items-center mb-1">
-                    <div className="w-3 h-3 rounded-full bg-red-500 mr-2"></div>
-                    <span className="text-xs sm:text-sm font-medium text-gray-700">
-                      Gastado
-                    </span>
-                  </div>
-                  <p className="ml-5 text-base sm:text-lg font-semibold text-gray-900">
-                    {cantidad(gastado)}
-                  </p>
-                </div>
-              </div>
-            </div>
+            
           </div>
         </div>
 
@@ -412,7 +565,6 @@ export default function Dashboard({
                 // Obtener información de la categoría
                 const info = categoriasInfo[categoriaId] || {
                   nombre: categoriaId,
-                  icono: IconoGasto,
                   color: "bg-blue-100",
                 };
 
@@ -426,16 +578,10 @@ export default function Dashboard({
                   >
                     <div className="flex items-center min-w-0">
                       <div
-                        className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full ${
+                        className={`w-3 h-3 sm:w-4 sm:h-4 rounded-full ${
                           info.color?.split(" ")[0] || "bg-blue-100"
-                        } flex items-center justify-center mr-2 sm:mr-3 flex-shrink-0`}
-                      >
-                        <img
-                          src={info.icono}
-                          alt={info.nombre}
-                          className="w-4 h-4 sm:w-6 sm:h-6"
-                        />
-                      </div>
+                        } mr-3 flex-shrink-0`}
+                      />
                       <div className="min-w-0 flex-1">
                         <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">
                           {info.nombre || categoriaId}
@@ -448,15 +594,17 @@ export default function Dashboard({
                         </div>
                       </div>
                     </div>
-                    <span className="text-xs sm:text-sm font-medium text-gray-900 ml-2 flex-shrink-0">
-                      {cantidad(monto)}
+                    <span className="font-bold text-gray-900 text-right">
+                      {'$' + new Intl.NumberFormat('es-CO').format(Number(monto))}
                     </span>
                   </div>
                 );
               })
             ) : (
               <p className="text-gray-500 text-center py-4 text-sm">
-                No hay gastos registrados aún
+                {currentView === 'monthly' 
+                  ? `No hay gastos registrados para ${obtenerMesSeleccionado()}`
+                  : "No hay gastos registrados aún"}
               </p>
             )}
           </div>
@@ -464,11 +612,13 @@ export default function Dashboard({
       </div>
 
       {/* Historial de ingresos extra con botones de acción */}
-      {ingresosExtra.length > 0 && (
+      {ingresosFiltrados.length > 0 ? (
         <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">
           <div className="flex items-center justify-between mb-3 sm:mb-4">
             <h2 className="text-base sm:text-lg font-medium text-gray-900">
-              Ingresos Adicionales
+              {currentView === 'monthly' 
+                ? `Ingresos de ${obtenerMesSeleccionado()}` 
+                : "Todos los Ingresos"}
             </h2>
           </div>
 
@@ -505,7 +655,7 @@ export default function Dashboard({
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {ingresosExtra.map((ingreso) => {
+                    {ingresosFiltrados.map((ingreso) => {
                       // Formatear fecha
                       const formatoFecha = formatearFecha(ingreso.fecha);
 
@@ -520,7 +670,7 @@ export default function Dashboard({
                             {formatoFecha}
                           </td>
                           <td className="px-3 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-right text-green-600">
-                            +{cantidad(ingreso.monto)}
+                            +{'$' + new Intl.NumberFormat('es-CO').format(Number(ingreso.monto))}
                           </td>
                           <td className="px-3 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-right">
                             <div className="flex justify-end">
@@ -553,23 +703,36 @@ export default function Dashboard({
             </div>
           </div>
         </div>
+      ) : currentView === 'monthly' && (
+        <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <h2 className="text-base sm:text-lg font-medium text-gray-900">
+              {`Ingresos de ${obtenerMesSeleccionado()}`}
+            </h2>
+          </div>
+          <p className="text-gray-500 text-center py-4 text-sm">
+            No hay ingresos registrados para {obtenerMesSeleccionado()}
+          </p>
+        </div>
       )}
 
       {/* Actividad Reciente (Gastos e Ingresos) - Versión Adaptativa */}
       <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">
         <div className="flex items-center justify-between mb-3 sm:mb-4">
           <h2 className="text-base sm:text-lg font-medium text-gray-900">
-            Actividad Reciente
+            {currentView === 'monthly' ? `Actividad de ${obtenerMesSeleccionado()}` : 'Actividad Reciente'}
           </h2>
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault(); /* Navegar a actividad */
-            }}
-            className="text-xs sm:text-sm font-medium text-blue-600 hover:text-blue-500"
-          >
-            Ver toda
-          </a>
+          {actividadReciente.length > 8 && (
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault(); /* Navegar a actividad */
+              }}
+              className="text-xs sm:text-sm font-medium text-blue-600 hover:text-blue-500"
+            >
+              Ver toda
+            </a>
+          )}
         </div>
 
         {actividadReciente.length > 0 ? (
@@ -626,7 +789,7 @@ export default function Dashboard({
                         }`}
                       >
                         {esIngreso ? "+" : ""}
-                        {cantidad(actividad.monto)}
+                        {'$' + new Intl.NumberFormat('es-CO').format(Number(actividad.monto))}
                       </span>
                     </div>
                   </div>
@@ -636,12 +799,30 @@ export default function Dashboard({
           </div>
         ) : (
           <p className="text-gray-500 text-center py-4 text-xs sm:text-sm">
-            No hay actividad registrada aún
+            {currentView === 'monthly' 
+              ? `No hay actividad registrada para ${obtenerMesSeleccionado()}`
+              : "No hay actividad registrada aún"}
           </p>
         )}
       </div>
-       {/* Historial de elementos eliminados */}
-       <HistorialEliminados />
+      
+      {/* Solo mostrar historial de eliminados en vista global */}
+      {currentView === 'total' && (
+        <HistorialEliminados />
+      )}
     </div>
   );
 }
+
+Dashboard.propTypes = {
+  presupuesto: PropTypes.number.isRequired,
+  setPresupuesto: PropTypes.func.isRequired,
+  gastosState: PropTypes.array.isRequired,
+  actualizarPresupuesto: PropTypes.func.isRequired,
+  ingresosExtra: PropTypes.array,
+  editarIngreso: PropTypes.func.isRequired,
+  eliminarIngreso: PropTypes.func.isRequired,
+  setModalIngreso: PropTypes.func.isRequired,
+  setModalEditar: PropTypes.func.isRequired,
+  actualizarPresupuestoTotal: PropTypes.func.isRequired
+};

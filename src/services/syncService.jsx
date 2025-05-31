@@ -1,95 +1,116 @@
-const API_BASE_URL = "https://g-gastosback-production.up.railway.app/api";
-let syncInProgress;
+// syncService.js con sincronización manual mejorada y detección de cambios correcta
 
-/**
- * Inicializa la estructura para elementos eliminados si no existe
- * @returns {Object} Estructura de elementos eliminados
- */
-export const initializeDeletedItems = () => {
-  const eliminados = localStorage.getItem("eliminados");
+import { API_CONFIG, STORAGE_KEYS, SYNC_CONFIG } from '../config/config';
+import { isAuthenticated, getCredentials } from './authService';
+
+let pendingChanges = false; // Flag para indicar si hay cambios pendientes
+
+// Parchar los métodos de localStorage para capturar cambios
+const patchLocalStorage = () => {
+  const originalSetItem = localStorage.setItem;
   
-  if (!eliminados) {
-    const estructuraInicial = {
-      ObjetosGastos: [],
-      IngresosExtra: [],
-      MetasAhorro: [],
-      categorias: [],
-      recordatorios: []
-    };
-    
-    localStorage.setItem("eliminados", JSON.stringify(estructuraInicial));
-    return estructuraInicial;
-  }
-  
-  return JSON.parse(eliminados);
+  // Sobrescribir setItem para que dispare un evento cuando ocurra un cambio relevante
+  localStorage.setItem = function(key, value) {
+    const prevValue = localStorage.getItem(key);
+    if (prevValue !== value) {
+      originalSetItem.call(this, key, value);
+      // Si la clave está en nuestra lista de interés, disparar un evento
+      if (SYNC_CONFIG.KEYS_TO_OBSERVE.includes(key)) {
+        // Crear un evento como si fuera un cambio en localStorage
+        const storageEvent = new CustomEvent('localDataChanged', {
+          detail: { key, newValue: value }
+        });
+        // Disparar el evento
+        window.dispatchEvent(storageEvent);
+      }
+    }
+  };
 };
 
-/**
- * Registra un elemento eliminado para sincronización
- * @param {string} tipo - El tipo de elemento (ObjetosGastos, IngresosExtra, etc.)
- * @param {string} id - El ID del elemento eliminado
- */
-export const registrarElementoEliminado = (tipo, id) => {
-  const eliminados = JSON.parse(localStorage.getItem("eliminados")) || initializeDeletedItems();
+// Observer para detectar cambios en localStorage
+const setupSyncObserver = () => {
+  if (!isAuthenticated()) return null;
   
-  // Verificar que el array para este tipo existe
-  if (!eliminados[tipo]) {
-    eliminados[tipo] = [];
-  }
+  // Parchar el localStorage para capturar eventos de la misma ventana
+  patchLocalStorage();
   
-  // Añadir el ID si no está ya en la lista
-  if (!eliminados[tipo].includes(id)) {
-    eliminados[tipo].push(id);
-    localStorage.setItem("eliminados", JSON.stringify(eliminados));
-    console.log(`Elemento registrado para eliminación: ${tipo} - ${id}`);
-  }
+  // Función para manejar cambios en localStorage
+  const handleStorageChange = (e) => {
+    // Para eventos de storage normal
+    if (!e.detail && (!e.key || SYNC_CONFIG.KEYS_TO_OBSERVE.includes(e.key))) {
+      pendingChanges = true;
+      window.dispatchEvent(new CustomEvent('syncPendingChange', {
+        detail: { hasPendingChanges: true }
+      }));
+      console.log("Cambios detectados en localStorage. Sincronización pendiente.");
+    }
+    // Para nuestro evento personalizado
+    else if (e.detail && e.type === 'localDataChanged') {
+      pendingChanges = true;
+      window.dispatchEvent(new CustomEvent('syncPendingChange', {
+        detail: { hasPendingChanges: true }
+      }));
+      console.log("Cambios locales detectados en:", e.detail.key);
+    }
+  };
+
+  // Agregar listener para eventos de storage (cambios desde otras pestañas)
+  window.addEventListener('storage', handleStorageChange);
+  window.addEventListener('localDataChanged', handleStorageChange);
+  
+  // Verificar al inicio si hay cambios pendientes comparando timestamps
+  const checkInitialPendingChanges = () => {
+    if (isAuthenticated()) {
+      const lastSyncTimestamp = parseInt(localStorage.getItem(STORAGE_KEYS.LAST_SYNC) || "0");
+      const currentTime = Date.now();
+      
+      if (currentTime - lastSyncTimestamp > SYNC_CONFIG.TIMEOUT) {
+        pendingChanges = true;
+        window.dispatchEvent(new CustomEvent('syncPendingChange', {
+          detail: { hasPendingChanges: true }
+        }));
+      }
+    }
+  };
+  
+  checkInitialPendingChanges();
+  
+  return () => {
+    window.removeEventListener('storage', handleStorageChange);
+    window.removeEventListener('localDataChanged', handleStorageChange);
+  };
 };
 
-/**
- * Sincroniza los datos del localStorage con el servidor
- * @returns {Promise<boolean>} Éxito de la sincronización
- */
-export const syncDataToServer = async () => {
+// Función para sincronizar datos al servidor
+const syncDataToServer = async () => {
+  if (!isAuthenticated()) {
+    console.log("No hay sesión activa. No se puede sincronizar.");
+    return false;
+  }
+  
   try {
-    // Obtener datos necesarios para la sincronización
-    const token = localStorage.getItem("token");
-    const userEmail = localStorage.getItem("userEmail");
+    const { token, email } = getCredentials();
     const timestamp = Date.now();
-
-    if (!token || !userEmail) {
-      console.error("No hay token o email para sincronizar");
-      return false;
-    }
-
-    // Obtener elementos eliminados
-    const eliminados = JSON.parse(localStorage.getItem("eliminados")) || initializeDeletedItems();
     
-    // Verificar si hay elementos para eliminar
-    const hayElementosEliminados = Object.values(eliminados).some(arr => arr.length > 0);
-    if (hayElementosEliminados) {
-      console.log("Encontrados elementos para eliminar:", eliminados);
-    }
-
-    // Preparar los datos a enviar
+    // Obtener elementos eliminados del localStorage
+    const eliminados = JSON.parse(localStorage.getItem(STORAGE_KEYS.ELIMINADOS) || "{}");
+    
+    // Obtener datos del localStorage
     const dataToSync = {
-      email: userEmail,
+      email: email,
       data: {
-        // Obtener datos del localStorage
-        ObjetosGastos: JSON.parse(localStorage.getItem("ObjetosGastos") || "[]"),
-        MetasAhorro: JSON.parse(localStorage.getItem("MetasAhorro") || "[]"),
-        categorias: JSON.parse(localStorage.getItem("categorias") || "[]"),
-        recordatorios: JSON.parse(localStorage.getItem("recordatorios") || "[]"),
-        PresupuestoLS: JSON.parse(localStorage.getItem("PresupuestoLS") || "0"),
-        IngresosExtra: JSON.parse(localStorage.getItem("IngresosExtra") || "[]")
+        [STORAGE_KEYS.GASTOS]: JSON.parse(localStorage.getItem(STORAGE_KEYS.GASTOS) || "[]"),
+        [STORAGE_KEYS.METAS]: JSON.parse(localStorage.getItem(STORAGE_KEYS.METAS) || "[]"),
+        [STORAGE_KEYS.CATEGORIAS]: JSON.parse(localStorage.getItem(STORAGE_KEYS.CATEGORIAS) || "[]"),
+        [STORAGE_KEYS.RECORDATORIOS]: JSON.parse(localStorage.getItem(STORAGE_KEYS.RECORDATORIOS) || "[]"),
+        [STORAGE_KEYS.PRESUPUESTO]: JSON.parse(localStorage.getItem(STORAGE_KEYS.PRESUPUESTO) || "0"),
+        [STORAGE_KEYS.INGRESOS]: JSON.parse(localStorage.getItem(STORAGE_KEYS.INGRESOS) || "[]")
       },
       eliminados: eliminados,
       timestamp: timestamp
     };
-
-    console.log("Enviando datos al servidor:", dataToSync);
-
-    // Enviar datos al servidor
-    const response = await fetch(`${API_BASE_URL}/sync/upload`, {
+    
+    const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.SYNC.UPLOAD}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -97,49 +118,45 @@ export const syncDataToServer = async () => {
       },
       body: JSON.stringify(dataToSync)
     });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("Error de sincronización:", errorData);
+      return false;
+    }
+    
+    localStorage.setItem(STORAGE_KEYS.LAST_SYNC, timestamp.toString());
+    pendingChanges = false;
+    
+    window.dispatchEvent(new CustomEvent('syncPendingChange', {
+      detail: { hasPendingChanges: false }
+    }));
+    
+    console.log("Datos sincronizados correctamente");
+    return true;
+  } catch (error) {
+    console.error("Error al sincronizar datos:", error);
+    return false;
+  }
+};
 
-    if (response.ok) {
-      
-      // Actualizar timestamp de última sincronización
-      localStorage.setItem("lastSyncTimestamp", timestamp.toString());
-      console.log("Datos sincronizados correctamente al servidor:", timestamp);
+// Función para obtener datos del servidor
+const syncDataFromServer = async (forceSync = false) => {
+  if (!isAuthenticated()) {
+    console.log("No hay sesión activa. No se puede sincronizar desde el servidor.");
+    return false;
+  }
+  
+  try {
+    const { token, email } = getCredentials();
+    
+    if (!forceSync && !pendingChanges) {
+      console.log("No hay cambios pendientes que sincronizar");
       return true;
-    } else {
-      const errorData = await response.json();
-      console.error("Error al sincronizar datos al servidor:", errorData.message);
-      return false;
     }
-  } catch (error) {
-    console.error("Error durante la sincronización al servidor:", error);
-    return false;
-  }
-};
-
-/**
- * Descarga datos actualizados desde el servidor y actualiza localStorage inmediatamente
- * @param {boolean} forceFullSync Forzar sincronización completa ignorando timestamp
- * @returns {Promise<boolean>} Éxito de la sincronización
- */
-export const syncDataFromServer = async (forceFullSync = false) => {
-  try {
-    const token = localStorage.getItem("token");
-    const userEmail = localStorage.getItem("userEmail");
     
-    if (!token || !userEmail) {
-      console.error("No hay token o email para sincronizar");
-      return false;
-    }
-
-    // Obtener el timestamp de la última sincronización o usar 0 para sincronización completa
-    const lastSyncTimestamp = forceFullSync 
-      ? 0 
-      : parseInt(localStorage.getItem("lastSyncTimestamp") || "0");
-
-    console.log(`Solicitando datos desde timestamp: ${lastSyncTimestamp}`);
-
-    // Solicitar datos al servidor desde la última sincronización
     const response = await fetch(
-      `${API_BASE_URL}/sync/download?userId=${encodeURIComponent(userEmail)}&since=${lastSyncTimestamp}`, 
+      `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.SYNC.DOWNLOAD}?userId=${encodeURIComponent(email)}&since=0`, 
       {
         method: "GET",
         headers: {
@@ -148,612 +165,192 @@ export const syncDataFromServer = async (forceFullSync = false) => {
         }
       }
     );
-
+    
     if (!response.ok) {
       const errorData = await response.json();
-      console.error("Error al obtener datos del servidor:", errorData.message);
+      console.error("Error al obtener datos:", errorData);
       return false;
     }
-
-    const responseJson = await response.json();
-    console.log("Datos recibidos del servidor:", responseJson);
-
-    // Extraer los datos del objeto response
-    const data = responseJson.data || responseJson;
     
-    // Actualizar localStorage con los datos recibidos
-    if (data.ObjetosGastos) {
-      localStorage.setItem("ObjetosGastos", JSON.stringify(data.ObjetosGastos));
-      console.log("Datos de gastos actualizados en localStorage:", data.ObjetosGastos.length, "elementos");
+    const serverData = await response.json();
+    
+    if (!serverData || !serverData.data) {
+      console.log("No hay datos nuevos para sincronizar");
+      return true;
     }
     
-    if (data.MetasAhorro) {
-      localStorage.setItem("MetasAhorro", JSON.stringify(data.MetasAhorro));
-      console.log("Datos de metas actualizados en localStorage:", data.MetasAhorro.length, "elementos");
-    }
-    
-    if (data.categorias) {
-      localStorage.setItem("categorias", JSON.stringify(data.categorias));
-      console.log("Datos de categorías actualizados en localStorage:", data.categorias.length, "elementos");
-    }
-    
-    if (data.recordatorios) {
-      localStorage.setItem("recordatorios", JSON.stringify(data.recordatorios));
-      console.log("Datos de recordatorios actualizados en localStorage:", data.recordatorios.length, "elementos");
-    }
-    
-    if (data.IngresosExtra) {
-      localStorage.setItem("IngresosExtra", JSON.stringify(data.IngresosExtra));
-      console.log("Datos de ingresos actualizados en localStorage:", data.IngresosExtra.length, "elementos");
-    }
-    
-    // Actualizar presupuesto si existe
-    if (data.PresupuestoLS !== undefined) {
-      localStorage.setItem("PresupuestoLS", JSON.stringify(data.PresupuestoLS));
-      localStorage.setItem("ValidLS", JSON.stringify(true));
-      console.log("Presupuesto actualizado en localStorage:", data.PresupuestoLS);
-    }
-    
-    // Actualizar timestamp de última sincronización
-    const timestamp = responseJson.timestamp || Date.now();
-    localStorage.setItem("lastSyncTimestamp", timestamp.toString());
-    console.log("Timestamp de sincronización actualizado:", timestamp);
-    
-    // Notificar a la aplicación que los datos han cambiado (útil para React)
-    window.dispatchEvent(new Event('storage'));
-    
-    return true;
-  } catch (error) {
-    console.error("Error durante la sincronización desde el servidor:", error);
-    return false;
-  }
-};
-
-/**
- * Configurar observación de cambios en localStorage para sincronización automática
- */
-export const setupSyncObserver = () => {
-  // Inicializar estructura de elementos eliminados si no existe
-  initializeDeletedItems();
-  
-  // Almacena la función original de setItem
-  const originalSetItem = localStorage.setItem;
-  window.originalSetItem = originalSetItem;
-
-  // Sobrescribe la función setItem para detectar cambios
-  localStorage.setItem = function(key, value) {
-    // Llama a la función original
-    originalSetItem.call(this, key, value);
-
-    // Lista de claves a monitorear para sincronización
-    const keysToMonitor = [
-      "ObjetosGastos", 
-      "MetasAhorro", 
-      "categorias", 
-      "recordatorios", 
-      "IngresosExtra", 
-      "PresupuestoLS",
-      "eliminados"
-    ];
-
-    // Si la clave modificada es una que queremos sincronizar
-    if (keysToMonitor.includes(key)) {
-      console.log(`Detectado cambio en ${key}, programando sincronización...`);
-      
-      // Ejecutar sincronización con debounce (evitar muchas sincronizaciones seguidas)
-      if (window.syncTimeout) {
-        clearTimeout(window.syncTimeout);
-      }
-      
-      window.syncTimeout = setTimeout(() => {
-        // Verificar que el usuario esté autenticado
-        const token = localStorage.getItem("token");
-        if (token) {
-          console.log("Ejecutando sincronización automática después de cambios...");
-          syncDataToServer();
-        }
-      }, 2000); // Retraso de 2 segundos
-    }
-  };
-
-  // También escuchar eventos de storage para casos donde otros tabs/ventanas modifiquen datos
-  window.addEventListener('storage', (event) => {
-    const keysToMonitor = [
-      "ObjetosGastos", 
-      "MetasAhorro", 
-      "categorias", 
-      "recordatorios", 
-      "IngresosExtra", 
-      "PresupuestoLS",
-      "eliminados"
-    ];
-
-    if (keysToMonitor.includes(event.key)) {
-      console.log(`Detectado cambio en ${event.key} desde otra ventana/tab`);
-      
-      if (window.syncTimeoutStorage) {
-        clearTimeout(window.syncTimeoutStorage);
-      }
-      
-      window.syncTimeoutStorage = setTimeout(() => {
-        const token = localStorage.getItem("token");
-        if (token) {
-          syncDataToServer();
-        }
-      }, 2000);
-    }
-  });
-
-  console.log("Observador de cambios en localStorage configurado");
-};
-
-/**
- * Programa sincronizaciones periódicas
- * @param {number} intervalMinutes Intervalo en minutos entre sincronizaciones
- */
-export const setupPeriodicSync = (intervalMinutes = 5) => {
-  // Convertir minutos a milisegundos
-  const interval = intervalMinutes * 60 * 1000;
-  
-  console.log(`Configurando sincronización periódica cada ${intervalMinutes} minutos`);
-  
-  // Realizar una sincronización inicial inmediata
-  const token = localStorage.getItem("token");
-  if (token) {
-    // Primero sincronizamos los datos locales al servidor
-    syncDataToServer().then(() => {
-      // Luego obtenemos los datos más recientes del servidor
-      syncDataFromServer(true);
+    // Guardar datos en localStorage
+    Object.entries(serverData.data).forEach(([key, value]) => {
+      localStorage.setItem(key, JSON.stringify(value));
     });
-  }
-  
-  // Establecer un intervalo para sincronización periódica
-  const syncInterval = setInterval(() => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      console.log("Ejecutando sincronización periódica...");
-      syncDataToServer().then(() => {
-        syncDataFromServer();
-      });
-    } else {
-      // Si el usuario ya no está autenticado, detener sincronización periódica
-      clearInterval(syncInterval);
-      console.log("Usuario desautenticado, deteniendo sincronización periódica");
+    
+    if (serverData.eliminados) {
+      localStorage.setItem(STORAGE_KEYS.ELIMINADOS, JSON.stringify(serverData.eliminados));
     }
-  }, interval);
-  
-  // Guardar la referencia del intervalo para limpieza futura
-  window.syncInterval = syncInterval;
-  
-  return syncInterval;
+    
+    if (serverData.data[STORAGE_KEYS.PRESUPUESTO] && serverData.data[STORAGE_KEYS.PRESUPUESTO] > 0) {
+      localStorage.setItem(STORAGE_KEYS.VALID, JSON.stringify(true));
+    }
+    
+    if (serverData.timestamp) {
+      localStorage.setItem(STORAGE_KEYS.LAST_SYNC, serverData.timestamp.toString());
+    }
+    
+    pendingChanges = false;
+    
+    window.dispatchEvent(new CustomEvent('syncPendingChange', {
+      detail: { hasPendingChanges: false }
+    }));
+    
+    window.dispatchEvent(new Event('storage'));
+    
+    console.log("Datos obtenidos y actualizados correctamente");
+    return true;
+  } catch (error) {
+    console.error("Error al obtener datos del servidor:", error);
+    return false;
+  }
 };
 
-/**
- * Función específica para la sincronización inicial después del login
- * Esta función garantiza que los datos se carguen correctamente del servidor 
- * justo después de iniciar sesión
- */
-export const syncInitialDataAfterLogin = async (userEmail, token) => {
-  console.log("Iniciando sincronización inicial después del login...");
-  
+// Función para manejar el cierre de sesión
+const handleLogout = async () => {
   try {
-    // Forzar una sincronización completa (since=0)
-    const response = await fetch(
-      `${API_BASE_URL}/sync/download?userId=${encodeURIComponent(userEmail)}&since=0`, 
-      {
-        method: "GET",
+    const { token, email } = getCredentials();
+    
+    if (!token || !email) {
+      console.log("No hay sesión activa para cerrar");
+      return true;
+    }
+    
+    if (pendingChanges) {
+      const shouldSync = window.confirm(
+        "Tienes cambios sin sincronizar. ¿Deseas guardarlos antes de cerrar sesión?"
+      );
+      
+      if (shouldSync) {
+        await syncDataToServer();
+      }
+    }
+    
+    try {
+      const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.SYNC.CLOSE_SESSION}`, {
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`
-        }
+        },
+        body: JSON.stringify({ email })
+      });
+      
+      if (!response.ok) {
+        console.warn("No se pudo notificar al servidor del cierre de sesión");
       }
-    );
-
-    if (!response.ok) {
-      throw new Error("Error en la respuesta del servidor");
-    }
-
-    const responseJson = await response.json();
-    console.log("Datos iniciales recibidos del servidor:", responseJson);
-
-    // Extraer los datos del objeto response
-    const data = responseJson.data || responseJson;
-    
-    // Actualizar localStorage con los datos recibidos
-    if (data.ObjetosGastos) {
-      localStorage.setItem("ObjetosGastos", JSON.stringify(data.ObjetosGastos));
+    } catch (error) {
+      console.warn("Error al comunicar cierre de sesión al servidor:", error);
     }
     
-    if (data.MetasAhorro) {
-      localStorage.setItem("MetasAhorro", JSON.stringify(data.MetasAhorro));
-    }
+    localStorage.setItem(STORAGE_KEYS.SESSION_CONFLICT, "true");
+    localStorage.removeItem(STORAGE_KEYS.SESSION_CONFLICT);
+    localStorage.removeItem(STORAGE_KEYS.TOKEN);
+    localStorage.removeItem(STORAGE_KEYS.USER_EMAIL);
     
-    if (data.categorias) {
-      localStorage.setItem("categorias", JSON.stringify(data.categorias));
-    }
-    
-    if (data.recordatorios) {
-      localStorage.setItem("recordatorios", JSON.stringify(data.recordatorios));
-    }
-    
-    if (data.IngresosExtra) {
-      localStorage.setItem("IngresosExtra", JSON.stringify(data.IngresosExtra));
-    }
-    
-    // Actualizar presupuesto si existe
-    if (data.PresupuestoLS !== undefined) {
-      localStorage.setItem("PresupuestoLS", JSON.stringify(data.PresupuestoLS));
-      localStorage.setItem("ValidLS", JSON.stringify(true));
-    }
-    
-    // Actualizar timestamp de última sincronización
-    const timestamp = responseJson.timestamp || Date.now();
-    localStorage.setItem("lastSyncTimestamp", timestamp.toString());
-    
-    // Notificar a la aplicación que los datos han cambiado
-    window.dispatchEvent(new Event('storage'));
-    
-    console.log("Sincronización inicial completada exitosamente");
+    console.log("Sesión cerrada correctamente a nivel local");
     return true;
   } catch (error) {
-    console.error("Error en la sincronización inicial:", error);
+    console.error("Error al cerrar sesión:", error);
     return false;
   }
 };
 
-/**
- * Limpia los recursos de sincronización al cerrar sesión
- */
-export const cleanupSync = () => {
-  // Detener intervalos de sincronización
-  if (window.syncInterval) {
-    clearInterval(window.syncInterval);
-  }
-  
-  if (window.syncTimeout) {
-    clearTimeout(window.syncTimeout);
-  }
-  
-  if (window.syncTimeoutStorage) {
-    clearTimeout(window.syncTimeoutStorage);
-  }
-  
-  // Restaurar la función original de localStorage
-  if (window.originalSetItem) {
-    localStorage.setItem = window.originalSetItem;
-  }
-  
-  console.log("Recursos de sincronización limpiados");
-};
-
-
-/**
- * Realiza una sincronización manual bajo demanda
- * @returns {Promise<boolean>} Éxito de la sincronización
- */
-export const syncNow = async () => {
-  // Evitar sincronizaciones simultáneas
-  if (syncInProgress) {
-    console.log("Sincronización ya en progreso, ignorando solicitud");
-    return false;
-  }
-  
+// Función para sincronización inicial después del login
+const syncInitialDataAfterLogin = async (email, token) => {
   try {
-    syncInProgress = true;
-    console.log("Iniciando sincronización manual...");
+    console.log("Sincronización inicial después del login...");
     
-    const token = localStorage.getItem("token");
-    const userEmail = localStorage.getItem("userEmail");
-
-    if (!token || !userEmail) {
-      console.error("No hay token o email para sincronizar");
-      
-      // Mostrar alerta de error
-      if (window.Swal) {
-        window.Swal.fire({
-          title: 'Error',
-          text: 'No hay sesión activa para sincronizar',
-          icon: 'error',
-          confirmButtonColor: '#3085d6'
-        });
-      }
-      return false;
-    }
-
-    // Primero subir datos locales al servidor
-    const uploadResult = await syncDataToServer();
+    localStorage.setItem(STORAGE_KEYS.TOKEN, token);
+    localStorage.setItem(STORAGE_KEYS.USER_EMAIL, email);
     
-    if (!uploadResult) {
-      console.error("Error en la sincronización al servidor");
-      if (window.Swal) {
-        window.Swal.fire({
-          title: 'Error',
-          text: 'Error al sincronizar datos al servidor',
-          icon: 'error',
-          confirmButtonColor: '#3085d6'
-        });
-      }
-      return false;
-    }
+    const success = await syncDataFromServer(true);
+    setupSyncObserver();
     
-    // Luego descargar datos actualizados
-    const downloadResult = await syncDataFromServer();
-    
-    return uploadResult && downloadResult;
-
+    return success;
   } catch (error) {
-    console.error("Error durante la sincronización manual:", error);
-    
-    // Mostrar alerta de error genérico
-    if (window.Swal) {
-      window.Swal.fire({
-        title: 'Error',
-        text: 'Hubo un problema durante la sincronización',
-        icon: 'error',
-        confirmButtonColor: '#3085d6'
-      });
-    }
-    
+    console.error("Error en sincronización inicial:", error);
     return false;
-  } finally {
-    syncInProgress = false;
   }
 };
 
-
-/**
- * Cierra explícitamente la sesión en el servidor
- * @returns {Promise<boolean>} Éxito de cierre de sesión
- */
-export const closeSessionExplicitly = async () => {
+// Función para enviar notificación por correo electrónico
+const sendEmailNotification = async (emailData) => {
   try {
-    const token = localStorage.getItem("token");
-    const userEmail = localStorage.getItem("userEmail");
-    
-    if (!token || !userEmail) {
-      console.error("No hay token o email para cerrar sesión");
+    const { token } = getCredentials();
+    if (!token) {
+      console.error("No hay token de autenticación disponible.");
       return false;
     }
-    
-    // Enviar solicitud al servidor para cerrar la sesión
-    const response = await fetch(`${API_BASE_URL}/sync/close-session`, {
+
+    const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.EMAIL.NOTIFICATION}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`
+        "Authorization": `Bearer ${token}`,
       },
-      body: JSON.stringify({
-        email: userEmail
-      })
+      body: JSON.stringify(emailData),
     });
-    
-    if (response.ok) {
-      console.log("Sesión cerrada correctamente en el servidor");
-      return true;
-    } else {
+
+    if (!response.ok) {
       const errorData = await response.json();
-      console.error("Error al cerrar sesión en el servidor:", errorData.message);
+      console.error("Error al enviar correo electrónico:", errorData);
       return false;
     }
+
+    console.log("Correo electrónico enviado correctamente.");
+    return true;
   } catch (error) {
-    console.error("Error durante el cierre de sesión:", error);
+    console.error("Error en la solicitud de envío de correo electrónico:", error);
     return false;
   }
 };
 
-/**
- * Cierra la sesión del usuario de manera completa
- * @returns {Promise<boolean>} Éxito del cierre de sesión
- */
-export const handleLogout = async () => {
-  try {
-    // Intentar sincronizar una última vez antes de cerrar sesión
-    await syncDataToServer();
-    
-    // Cerrar sesión explícitamente en el servidor
-    await closeSessionExplicitly();
-    
-    // Limpiar recursos de sincronización
-    cleanupSync();
-    
-    // Limpiar datos locales específicos de la aplicación
-    const keysToRemove = [
-      "token", 
-      "userEmail", 
-      "lastSyncTimestamp", 
-      "sessionId",
-      "ObjetosGastos",
-      "MetasAhorro", 
-      "categorias", 
-      "recordatorios", 
-      "PresupuestoLS", 
-      "IngresosExtra",
-      "eliminados",
-      "ValidLS"
-    ];
-    
-    // Eliminar cada clave de localStorage
-    keysToRemove.forEach(key => {
-      localStorage.removeItem(key);
-    });
-    
-    // Disparar evento de cambio de autenticación
-    window.dispatchEvent(new Event('storage'));
-    window.dispatchEvent(new CustomEvent('authChange'));
-    
-    // Notificar evento de logout para componentes que lo necesiten
-    window.dispatchEvent(new CustomEvent('userLoggedOut'));
-    
-    console.log("Sesión cerrada correctamente");
-    return true;
-  } catch (error) {
-    console.error("Error durante el cierre de sesión:", error);
-    
-    // En caso de error, al menos intentar limpiar lo básico
-    localStorage.removeItem("token");
-    localStorage.removeItem("userEmail");
-    
-    // Disparar eventos de cambio
-    window.dispatchEvent(new Event('storage'));
-    window.dispatchEvent(new CustomEvent('authChange'));
-    
-    return false;
-  }
-};
-
-/**
- * Detecta y maneja conflictos entre múltiples sesiones activas
- * Incluye modales para notificar al usuario
- */
-/**
- * Configurar detección de conflictos de sesión
- * @returns {Function} Función para desactivar la detección de conflictos
- */
-export const setupSessionConflictDetection = () => {
-  // Generar un identificador único para esta sesión si no existe
-  if (!localStorage.getItem("sessionId")) {
-    localStorage.setItem("sessionId", 
-      `${Date.now()}-${Math.random().toString(36).substring(2, 10)}`
-    );
-  }
-
-  /**
-   * Manejar respuestas del servidor que indican conflictos de sesión
-   * @param {Object} response - Respuesta del servidor
-   * @returns {boolean} - Si la sesión está activa
-   */
-  const handleSessionResponse = (response) => {
-    // Si el servidor indica que esta no es la sesión activa
-    if (response && response.sessionActive === false) {
-      console.warn("El servidor indica que esta no es la sesión activa");
-      
-      // Usar SweetAlert si está disponible para mostrar un diálogo
-      if (window.Swal) {
-        window.Swal.fire({
-          title: "Sesión no activa",
-          text: "Se ha detectado otra sesión activa. ¿Deseas hacer de esta la sesión activa?",
-          icon: "warning",
-          showCancelButton: true,
-          confirmButtonText: "Sí, usar esta sesión",
-          cancelButtonText: "No, cerrar esta sesión",
-          confirmButtonColor: "#3085d6",
-          cancelButtonColor: "#d33"
-        }).then((result) => {
-          if (result.isConfirmed) {
-            // Forzar sincronización completa
-            syncDataFromServer(true)
-              .then(() => {
-                // Notificar que los datos han sido recargados
-                window.dispatchEvent(new CustomEvent('dataReloaded', { 
-                  detail: { source: 'sessionConflict' } 
-                }));
-                
-                window.Swal.fire({
-                  title: "Sesión activada",
-                  text: "Esta es ahora la sesión activa",
-                  icon: "success",
-                  timer: 2000,
-                  showConfirmButton: false
-                });
-              });
-          } else {
-            // Cerrar sesión si el usuario no quiere mantenerla
-            handleLogout()
-              .then(() => {
-                // Redirigir a la página de inicio de sesión
-                window.location.href = "/login";
-              });
-          }
-        });
-      }
-      
-      return false;
-    }
-    
-    return true;
-  };
-
-  // Interceptar métodos de sincronización para añadir detección de conflictos
-  const originalSyncDataFromServer = syncDataFromServer;
-  const originalSyncDataToServer = syncDataToServer;
-
-  // Sobrescribir método de sincronización desde el servidor
-  window.syncDataFromServer = async (forceFullSync = false) => {
-    try {
-      const result = await originalSyncDataFromServer(forceFullSync);
-      
-      // Verificar la respuesta de la sesión
-      handleSessionResponse(result);
-      
-      return result;
-    } catch (error) {
-      console.error("Error en sincronización desde servidor:", error);
-      return false;
+// Función para establecer la detección de conflictos de sesión
+const setupSessionConflictDetection = () => {
+  // Función para manejar mensajes de otros tabs
+  const handleStorageEvent = (e) => {
+    if (e.key === STORAGE_KEYS.SESSION_CONFLICT && e.newValue === "true") {
+      // Notificar al usuario que su sesión fue cerrada desde otra pestaña
+      console.log("Sesión cerrada desde otra pestaña");
+      // Recargar la página para reflejar el estado desconectado
+      window.location.reload();
     }
   };
-
-  // Sobrescribir método de sincronización hacia el servidor
-  window.syncDataToServer = async () => {
-    try {
-      const result = await originalSyncDataToServer();
-      
-      // Verificar la respuesta de la sesión
-      handleSessionResponse(result);
-      
-      return result;
-    } catch (error) {
-      console.error("Error en sincronización hacia servidor:", error);
-      return false;
-    }
-  };
-
-  // Añadir detector de cierre de ventana para advertir sobre sincronización
-  const beforeUnloadHandler = (event) => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      event.preventDefault();
-      event.returnValue = "¿Estás seguro de que deseas salir? Tus datos pueden perderse si no se han sincronizado.";
-      return event.returnValue;
-    }
-  };
-  window.addEventListener('beforeunload', beforeUnloadHandler);
-
-  // Retornar una función de limpieza para restaurar los métodos originales
+  
+  window.addEventListener("storage", handleStorageEvent);
+  
   return () => {
-    window.syncDataFromServer = originalSyncDataFromServer;
-    window.syncDataToServer = originalSyncDataToServer;
-    window.removeEventListener('beforeunload', beforeUnloadHandler);
+    window.removeEventListener("storage", handleStorageEvent);
   };
 };
 
+// Funciones auxiliares
+const hasPendingChanges = () => pendingChanges;
 
-export const resolveSessionConflict = async (userChoice) => {
-  if (userChoice === 'keepCurrent') {
-    // Forzar sincronización completa para esta sesión
-    await syncDataFromServer(true);
-    
-    window.dispatchEvent(new CustomEvent('dataReloaded', { 
-      detail: { source: 'sessionConflictResolved' } 
-    }));
-  } else if (userChoice === 'logout') {
-    // Cerrar sesión completamente
-    await handleLogout();
-    window.location.href = "/login";
-  }
+const setHasPendingChanges = (state) => {
+  pendingChanges = !!state;
+  window.dispatchEvent(new CustomEvent('syncPendingChange', {
+    detail: { hasPendingChanges: pendingChanges }
+  }));
+  return pendingChanges;
 };
 
-export default {
+// Exportar las funciones del servicio
+export {
   syncDataToServer,
   syncDataFromServer,
-  syncInitialDataAfterLogin,
   setupSyncObserver,
-  setupPeriodicSync,
-  cleanupSync,
-  registrarElementoEliminado,
-  initializeDeletedItems,
-  syncNow,
   handleLogout,
-  closeSessionExplicitly,
   setupSessionConflictDetection,
-  resolveSessionConflict
+  syncInitialDataAfterLogin,
+  hasPendingChanges,
+  setHasPendingChanges,
+  sendEmailNotification
 };

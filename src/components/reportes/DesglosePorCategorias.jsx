@@ -1,4 +1,5 @@
 import { cantidad } from "../../helpers/index.js";
+import PropTypes from "prop-types";
 
 const DesglosePorCategorias = ({ datosReporte }) => {
   return (
@@ -36,11 +37,12 @@ const DesglosePorCategorias = ({ datosReporte }) => {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {Object.entries(datosReporte.gastosPorCategoria)
-                .sort((a, b) => b[1] - a[1]) // Ordenar por valor descendente
+                .sort((a, b) => Number(b[1]) - Number(a[1])) // Ordenar por valor descendente
                 .map(([categoria, valor]) => {
-                  const porcentaje = Math.round(
-                    (valor / datosReporte.gastoTotal) * 100
-                  );
+                  const monto = Number(valor); // Asegura que es número
+                  const porcentaje = datosReporte.gastoTotal > 0
+                    ? Math.round((monto / Number(datosReporte.gastoTotal)) * 100)
+                    : 0;
 
                   return (
                     <tr key={categoria} className="hover:bg-gray-50">
@@ -48,7 +50,7 @@ const DesglosePorCategorias = ({ datosReporte }) => {
                         {categoria}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 text-right">
-                        {cantidad(valor)}
+                        {cantidad(monto)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
                         <div className="flex items-center justify-end">
@@ -94,6 +96,13 @@ const DesglosePorCategorias = ({ datosReporte }) => {
       )}
     </div>
   );
+};
+
+DesglosePorCategorias.propTypes = {
+  datosReporte: PropTypes.shape({
+    gastosPorCategoria: PropTypes.object.isRequired,
+    gastoTotal: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+  }).isRequired,
 };
 
 export default DesglosePorCategorias;

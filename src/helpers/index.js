@@ -68,3 +68,44 @@ export const obtenerFechaActual = () => {
   const fecha = new Date();
   return `${fecha.getDate()} de ${meses[fecha.getMonth()]} de ${fecha.getFullYear()}`;
 };
+
+
+/**
+ * Normaliza un formato de fecha a timestamp numérico
+ * @param {any} fecha - Fecha en cualquier formato (string ISO, objeto Date, número, etc.)
+ * @returns {number} - Timestamp en milisegundos
+ */
+export const normalizarFecha = (fecha) => {
+  // Si la fecha es undefined o null, usar la fecha actual
+  if (fecha === undefined || fecha === null) {
+    return Date.now();
+  }
+  
+  // Si ya es un número, asumimos que es un timestamp
+  if (typeof fecha === 'number') {
+    return fecha;
+  }
+  
+  // Si es un string
+  if (typeof fecha === 'string') {
+    // Si es string ISO (contiene T)
+    if (fecha.includes('T')) {
+      return new Date(fecha).getTime();
+    }
+    // Si es un string numérico
+    else if (!isNaN(fecha)) {
+      return Number(fecha);
+    }
+    // Otros formatos de fecha (yyyy-mm-dd)
+    return new Date(fecha).getTime();
+  }
+  
+  // Si es un objeto Date
+  if (fecha instanceof Date) {
+    return fecha.getTime();
+  }
+  
+  // Si no podemos interpretar el formato, retornar la fecha actual
+  console.warn('Formato de fecha no reconocido:', fecha);
+  return Date.now();
+};

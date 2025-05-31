@@ -100,7 +100,9 @@ const ProgresoMetasAhorro = ({ metasAhorro, datosReporte, formatearFecha }) => {
         </div>
       ) : (
         <div className="py-12 text-center">
-          <p className="text-gray-500">No hay metas de ahorro definidas</p>
+          <p className="text-gray-500">
+            Aquí verás el avance de tus metas de ahorro activas. Crea una meta para comenzar a visualizar tu progreso.
+          </p>
         </div>
       )}
     </div>

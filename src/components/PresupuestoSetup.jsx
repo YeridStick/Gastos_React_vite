@@ -1,28 +1,9 @@
-import React, { useState } from 'react';
-
-const FormularioPresupuesto = ({ 
-  presupuesto, 
-  setPresupuesto, 
-  setIsValid, 
-  setActiveTab 
-}) => {
-  const [error, setError] = useState(false);
-
-  const handlePresupuesto = () => {
-    if (presupuesto <= 0) {
-      setError(true);
-      return;
-    }
-
-    setError(false);
-    setIsValid(true);
-    setActiveTab("dashboard");
-    
-    // Guardar en localStorage
-    localStorage.setItem("PresupuestoLS", JSON.stringify(presupuesto));
-    localStorage.setItem("ValidLS", JSON.stringify(true));
-  };
-
+function PresupuestoSetup({
+  presupuesto,
+  setPresupuesto,
+  setIsValid,
+  setActiveTab,
+}) {
   return (
     <div className="flex flex-col flex-1 items-center justify-center p-4 sm:p-6 bg-gray-50">
       <div className="w-full max-w-md bg-white rounded-lg shadow-md p-5 sm:p-8">
@@ -41,31 +22,27 @@ const FormularioPresupuesto = ({
             Presupuesto inicial
           </label>
           <input
-            type="text"
+            type="number"
             id="presupuesto"
-            value={presupuesto ? Number(presupuesto).toLocaleString('es-CO') : ''}
-            onChange={e => {
-              const raw = e.target.value.replace(/\D/g, '');
-              setPresupuesto(raw);
-              setError(Number(raw) <= 0);
-            }}
+            value={presupuesto}
+            onChange={(e) => setPresupuesto(Number(e.target.value))}
             className="px-3 sm:px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             placeholder="Ingresa tu presupuesto"
           />
-          {presupuesto && (
-            <div className="text-xs text-gray-500 mt-1">
-              {new Intl.NumberFormat('es-CO').format(Number(presupuesto))} COP
-            </div>
-          )}
 
-          {error && (
+          {presupuesto < 0 && (
             <p className="mt-2 text-xs sm:text-sm text-red-600">
               El presupuesto debe ser un valor positivo
             </p>
           )}
 
           <button
-            onClick={handlePresupuesto}
+            onClick={() => {
+              if (presupuesto > 0) {
+                setIsValid(true);
+                setActiveTab("dashboard");
+              }
+            }}
             disabled={presupuesto <= 0}
             className={`mt-4 px-4 py-2 rounded-md text-white font-medium text-sm sm:text-base ${
               presupuesto > 0
@@ -79,6 +56,4 @@ const FormularioPresupuesto = ({
       </div>
     </div>
   );
-};
-
-export default FormularioPresupuesto;
+}

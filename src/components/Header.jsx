@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { cantidad } from "../helpers/index";
+import PropTypes from "prop-types";
+import { sendEmailNotification } from '../services/syncService';
 
 export default function Header({
   setIsSidebarOpen,
@@ -39,9 +41,19 @@ export default function Header({
     };
   }, []);
 
+  // Obtener información del usuario
+  const userEmail = localStorage.getItem("userEmail") || "";
+  const userName = userEmail.split('@')[0] || "Usuario";
+
   // Generar notificaciones basadas en metas, presupuesto disponible y recordatorios
   useEffect(() => {
     const nuevasNotificaciones = [];
+    const notificacionesLeidas = JSON.parse(localStorage.getItem("notificacionesLeidas") || "[]");
+
+    // Verify if user is authenticated before attempting to send emails
+    if (!isAuthenticated) {
+      console.log("User not authenticated. Skipping email notifications.");
+    }
 
     // Verificar metas que necesitan atención
     metas.forEach((meta) => {
@@ -49,18 +61,29 @@ export default function Header({
 
       // Meta con poco tiempo restante (menos de 30 días)
       if (meta.diasRestantes < 30) {
-        nuevasNotificaciones.push({
+        const notification = {
           id: `tiempo-${meta.id}`,
           titulo: "Fecha límite cercana",
           mensaje: `Tu meta "${meta.nombre}" vence en ${meta.diasRestantes} días.`,
           tipo: "warning",
           fecha: Date.now(),
-        });
+        };
+        if (!notificacionesLeidas.includes(notification.id)) {
+          nuevasNotificaciones.push(notification);
+          if (isAuthenticated && userEmail) {
+            sendEmailNotification({
+              email: userEmail,
+              subject: notification.titulo,
+              message: notification.mensaje,
+              userName: userName,
+            });
+          }
+        }
       }
 
       // Meta con ahorro mensual superior al disponible
       if (meta.ahorroMensual > disponibleMensual && disponibleMensual > 0) {
-        nuevasNotificaciones.push({
+        const notification = {
           id: `presupuesto-${meta.id}`,
           titulo: "Meta difícil de alcanzar",
           mensaje: `Necesitas ahorrar ${cantidad(
@@ -70,7 +93,18 @@ export default function Header({
           }", pero solo tienes disponible ${cantidad(disponibleMensual)}.`,
           tipo: "danger",
           fecha: Date.now(),
-        });
+        };
+        if (!notificacionesLeidas.includes(notification.id)) {
+          nuevasNotificaciones.push(notification);
+          if (isAuthenticated && userEmail) {
+            sendEmailNotification({
+              email: userEmail,
+              subject: notification.titulo,
+              message: notification.mensaje,
+              userName: userName,
+            });
+          }
+        }
       }
 
       // Meta con poco progreso respecto al tiempo transcurrido
@@ -81,7 +115,7 @@ export default function Header({
         100;
 
       if (porcentajeTiempoTranscurrido > 50 && porcentajeCompletado < 25) {
-        nuevasNotificaciones.push({
+        const notification = {
           id: `progreso-${meta.id}`,
           titulo: "Progreso lento",
           mensaje: `Has completado solo el ${Math.round(
@@ -91,7 +125,10 @@ export default function Header({
           )}% del tiempo.`,
           tipo: "info",
           fecha: Date.now(),
-        });
+        };
+        if (!notificacionesLeidas.includes(notification.id)) {
+          nuevasNotificaciones.push(notification);
+        }
       }
     });
 
@@ -125,7 +162,7 @@ export default function Header({
             (recordatorio.fechaVencimiento - hoy) / (1000 * 60 * 60 * 24)
           );
 
-          nuevasNotificaciones.push({
+          const notification = {
             id: `proximo-${recordatorio.id}`,
             titulo: "Pago próximo",
             mensaje: `Tu pago de "${recordatorio.titulo}" por ${cantidad(
@@ -136,7 +173,18 @@ export default function Header({
             tipo: "warning",
             fecha: Date.now(),
             link: "recordatorios",
-          });
+          };
+          if (!notificacionesLeidas.includes(notification.id)) {
+            nuevasNotificaciones.push(notification);
+            if (isAuthenticated && userEmail) {
+              sendEmailNotification({
+                email: userEmail,
+                subject: notification.titulo,
+                message: notification.mensaje,
+                userName: userName,
+              });
+            }
+          }
         });
 
         // Añadir notificaciones para recordatorios vencidos
@@ -147,7 +195,7 @@ export default function Header({
             )
           );
 
-          nuevasNotificaciones.push({
+          const notification = {
             id: `vencido-${recordatorio.id}`,
             titulo: "Pago vencido",
             mensaje: `Tu pago de "${recordatorio.titulo}" por ${cantidad(
@@ -158,7 +206,18 @@ export default function Header({
             tipo: "danger",
             fecha: Date.now(),
             link: "recordatorios",
-          });
+          };
+          if (!notificacionesLeidas.includes(notification.id)) {
+            nuevasNotificaciones.push(notification);
+            if (isAuthenticated && userEmail) {
+              sendEmailNotification({
+                email: userEmail,
+                subject: notification.titulo,
+                message: notification.mensaje,
+                userName: userName,
+              });
+            }
+          }
         });
       }
     } catch (error) {
@@ -172,19 +231,22 @@ export default function Header({
     if (nuevasNotificaciones.length > 0) {
       setNotificaciones(nuevasNotificaciones);
     }
-  }, [metas, disponibleMensual]);
+  }, [metas, disponibleMensual, isAuthenticated, userEmail, userName]);
 
   // Manejar clic en notificación
   const handleNotificationClick = (notificacion) => {
     // Si la notificación tiene un link, navegar a esa sección
     if (notificacion.link) {
-      // Aquí puedes implementar la navegación a la sección correspondiente
-      // Por ejemplo, usando React Router o cambiando el estado en el componente principal
-      //console.log(`Navegar a: ${notificacion.link}`);
-
       // Cierra el panel de notificaciones
       setShowNotifications(false);
     }
+  };
+
+  // Manejar marcar todas las notificaciones como leídas
+  const handleMarkAllAsRead = () => {
+    const notificacionesLeidas = notificaciones.map(n => n.id);
+    localStorage.setItem("notificacionesLeidas", JSON.stringify(notificacionesLeidas));
+    setNotificaciones([]);
   };
   
   // Manejar cierre de sesión
@@ -194,10 +256,6 @@ export default function Header({
     }
     setShowUserMenu(false);
   };
-
-  // Obtener información del usuario
-  const userEmail = localStorage.getItem("userEmail") || "";
-  const userName = userEmail.split('@')[0] || "Usuario";
 
   return (
     <header className="bg-white shadow-sm z-10">
@@ -289,7 +347,7 @@ export default function Header({
                     {notificaciones.length > 0 && (
                       <button
                         className="text-xs text-gray-500 hover:text-gray-700"
-                        onClick={() => setNotificaciones([])}
+                        onClick={handleMarkAllAsRead}
                       >
                         Marcar todas
                       </button>
@@ -425,3 +483,12 @@ export default function Header({
     </header>
   );
 }
+
+Header.propTypes = {
+  setIsSidebarOpen: PropTypes.func.isRequired,
+  isSidebarOpen: PropTypes.bool.isRequired,
+  metas: PropTypes.array,
+  disponibleMensual: PropTypes.number,
+  isAuthenticated: PropTypes.bool,
+  onLogout: PropTypes.func
+};

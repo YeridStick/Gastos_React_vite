@@ -102,12 +102,20 @@ const ModalEditarPresupuesto = ({ setModalEditar, presupuestoActual, actualizarP
             </label>
             <input
               id="nuevo-presupuesto"
-              type="number"
+              type="text"
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Ingrese el nuevo presupuesto total"
-              value={nuevoPresupuesto}
-              onChange={e => setNuevoPresupuesto(e.target.value)}
+              value={nuevoPresupuesto ? Number(nuevoPresupuesto).toLocaleString('es-CO') : ''}
+              onChange={e => {
+                const raw = e.target.value.replace(/\D/g, '');
+                setNuevoPresupuesto(raw);
+              }}
             />
+            {nuevoPresupuesto && (
+              <div className="text-xs text-gray-500 mt-1">
+                {new Intl.NumberFormat('es-CO').format(Number(nuevoPresupuesto))} COP
+              </div>
+            )}
           </div>
           
           <div className="mb-6">

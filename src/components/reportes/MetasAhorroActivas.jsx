@@ -96,7 +96,7 @@ const MetasAhorroActivas = ({ metasAhorro, formatearFecha }) => {
       ) : (
         <div className="py-12 text-center">
           <p className="text-gray-500">
-            No hay metas de ahorro activas en este periodo
+            Aquí aparecerán tus metas de ahorro activas. Agrega una meta para empezar a gestionar tu ahorro.
           </p>
         </div>
       )}

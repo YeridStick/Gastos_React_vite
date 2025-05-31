@@ -18,11 +18,12 @@ const GeneradorReporteExcel = ({ datosReporte, periodo, metasAhorro, formatearFe
         
         // Función para dar formato a montos
         const formatoMoneda = (valor) => {
-          if (typeof valor === 'number') {
+          const num = Number(valor);
+          if (!isNaN(num)) {
             return new Intl.NumberFormat('es-MX', {
               style: 'currency',
               currency: 'MXN'
-            }).format(valor);
+            }).format(num);
           }
           return valor;
         };
@@ -33,9 +34,9 @@ const GeneradorReporteExcel = ({ datosReporte, periodo, metasAhorro, formatearFe
           ["Generado el", formatearFecha(new Date())],
           [],
           ["Concepto", "Valor"],
-          ["Gasto Total", formatoMoneda(datosReporte.gastoTotal)],
-          ["Ingresos Extra", formatoMoneda(datosReporte.ingresoExtra)],
-          ["Balance", formatoMoneda(datosReporte.balance)],
+          ["Gasto Total", formatoMoneda(Number(datosReporte.gastoTotal))],
+          ["Ingresos Extra", formatoMoneda(Number(datosReporte.ingresoExtra))],
+          ["Balance", formatoMoneda(Number(datosReporte.balance))],
           ["Cumplimiento Presupuesto", `${datosReporte.cumplimientoPresupuesto}%`]
         ];
         
@@ -52,23 +53,54 @@ const GeneradorReporteExcel = ({ datosReporte, periodo, metasAhorro, formatearFe
         XLSX.utils.book_append_sheet(wb, wsResumen, "Resumen Financiero");
         
         // Hoja 2: Resumen de Ahorro
+        const metasDetalle = (metasAhorro && metasAhorro.length > 0)
+          ? metasAhorro.map(meta => [
+              meta.nombre,
+              formatoMoneda(Number(meta.monto)),
+              formatoMoneda(Number(meta.ahorroAcumulado || 0)),
+              meta.monto > 0 ? `${Math.min(100, Math.round(((meta.ahorroAcumulado || 0) * 100) / meta.monto))}%` : "0%",
+              formatearFecha(meta.fechaObjetivo),
+              meta.completada ? "Completada" : "Activa"
+            ])
+          : [["No hay metas de ahorro en este periodo", "", "", "", "", ""]];
+
         const datosAhorro = [
           ["Resumen de Ahorro", periodo],
           [],
           ["Concepto", "Valor"],
-          ["Total Ahorrado", formatoMoneda(datosReporte.totalAhorrado)],
-          ["Ahorro Disponible", formatoMoneda(datosReporte.ahorroDisponible)],
+          ["Total Ahorrado", formatoMoneda(Number(datosReporte.totalAhorrado))],
+          ["Ahorro Disponible", formatoMoneda(Number(datosReporte.ahorroDisponible))],
           ["Progreso Global", `${datosReporte.progresoAhorro}%`],
           ["Proyección de Completitud", datosReporte.proyeccionCompletitud > 0 
             ? `${datosReporte.proyeccionCompletitud} meses` 
             : "N/A"],
           [],
           ["Metas Activas", datosReporte.metasActivasTotal],
-          ["Metas Completadas", datosReporte.metasCompletadasTotal]
+          ["Metas Completadas", datosReporte.metasCompletadasTotal],
+          [],
+          ["Detalle de Metas de Ahorro"],
+          ["Nombre", "Monto Objetivo", "Ahorrado", "Progreso", "Fecha Objetivo", "Estado"],
+          ...metasDetalle
         ];
         
         const wsAhorro = XLSX.utils.aoa_to_sheet(datosAhorro);
         wsAhorro['!cols'] = defaultColWidth;
+        // Aplicar borde grueso a la tabla de detalle de metas
+        const startRow = datosAhorro.findIndex(row => row[0] === "Detalle de Metas de Ahorro") + 1;
+        const endRow = startRow + metasDetalle.length;
+        for (let r = startRow; r <= endRow; r++) {
+          for (let c = 0; c < 6; c++) {
+            const cell = XLSX.utils.encode_cell({ r, c });
+            if (!wsAhorro[cell]) continue;
+            wsAhorro[cell].s = wsAhorro[cell].s || {};
+            wsAhorro[cell].s.border = {
+              top: { style: "medium", color: { rgb: "000000" } },
+              bottom: { style: "medium", color: { rgb: "000000" } },
+              left: { style: "medium", color: { rgb: "000000" } },
+              right: { style: "medium", color: { rgb: "000000" } }
+            };
+          }
+        }
         XLSX.utils.book_append_sheet(wb, wsAhorro, "Resumen Ahorro");
         
         // Hoja 3: Gastos por Categoría
@@ -81,7 +113,7 @@ const GeneradorReporteExcel = ({ datosReporte, periodo, metasAhorro, formatearFe
             const porcentaje = datosReporte.gastoTotal > 0 
               ? Math.round((valor / datosReporte.gastoTotal) * 100)
               : 0;
-            return [categoria, formatoMoneda(valor), `${porcentaje}%`];
+            return [categoria, formatoMoneda(Number(valor)), `${porcentaje}%`];
           });
         
         // Combinar encabezados y datos
@@ -109,10 +141,11 @@ const GeneradorReporteExcel = ({ datosReporte, periodo, metasAhorro, formatearFe
             { wch: 15 }, // Fecha
             { wch: 15 }, // Monto
             { wch: 15 }, // Ahorrado
-            { wch: 15 }  // Progreso
+            { wch: 15 }, // Progreso
+            { wch: 15 }  // Estado
           ];
           
-          // Separar metas activas y completadas
+          // Datos de metas activas
           const metasActivas = metasAhorro.filter(meta => !meta.completada);
           const metasCompletadas = metasAhorro.filter(meta => meta.completada);
           
@@ -125,9 +158,10 @@ const GeneradorReporteExcel = ({ datosReporte, periodo, metasAhorro, formatearFe
             return [
               meta.nombre,
               formatearFecha(meta.fechaObjetivo),
-              formatoMoneda(meta.monto),
-              formatoMoneda(meta.ahorroAcumulado || 0),
-              `${progreso}%`
+              formatoMoneda(Number(meta.monto)),
+              formatoMoneda(Number(meta.ahorroAcumulado || 0)),
+              `${progreso}%`,
+              meta.completada ? "Completada" : "Activa"
             ];
           });
           
@@ -136,7 +170,7 @@ const GeneradorReporteExcel = ({ datosReporte, periodo, metasAhorro, formatearFe
             ["Metas de Ahorro Activas", periodo],
             [],
             headersMetasActivas,
-            ...(datosMetasActivas.length > 0 ? datosMetasActivas : [["No hay metas activas", "", "", "", ""]])
+            ...(datosMetasActivas.length > 0 ? datosMetasActivas : [["No hay metas activas", "", "", "", "", ""]])
           ];
           
           const wsMetasActivas = XLSX.utils.aoa_to_sheet(metasActivasData);
@@ -148,9 +182,10 @@ const GeneradorReporteExcel = ({ datosReporte, periodo, metasAhorro, formatearFe
             const datosMetasCompletadas = metasCompletadas.map(meta => [
               meta.nombre,
               formatearFecha(meta.fechaObjetivo || new Date()),
-              formatoMoneda(meta.monto),
-              formatoMoneda(meta.ahorroAcumulado || meta.monto),
-              "100%"
+              formatoMoneda(Number(meta.monto)),
+              formatoMoneda(Number(meta.ahorroAcumulado || meta.monto)),
+              "100%",
+              meta.completada ? "Completada" : "Activa"
             ]);
             
             const metasCompletadasData = [
@@ -177,7 +212,7 @@ const GeneradorReporteExcel = ({ datosReporte, periodo, metasAhorro, formatearFe
                 ? Math.round((valor / datosReporte.totalGastosAhorro) * 100)
                 : 0;
               
-              return [nombreMeta, formatoMoneda(valor), `${porcentaje}%`];
+              return [nombreMeta, formatoMoneda(Number(valor)), `${porcentaje}%`];
             });
           
           const ahorroPorMetaData = [
@@ -186,7 +221,7 @@ const GeneradorReporteExcel = ({ datosReporte, periodo, metasAhorro, formatearFe
             headersAhorroPorMeta,
             ...datosAhorroPorMeta,
             [],
-            ["Total", formatoMoneda(datosReporte.totalGastosAhorro || 0), "100%"]
+            ["Total", formatoMoneda(Number(datosReporte.totalGastosAhorro || 0)), "100%"]
           ];
           
           const wsAhorroPorMeta = XLSX.utils.aoa_to_sheet(ahorroPorMetaData);

@@ -8,6 +8,7 @@ import ProgresoMetasAhorro from "../components/reportes/ProgresoMetasAhorro";
 import DesglosePorCategorias from "../components/reportes/DesglosePorCategorias";
 import MetasAhorroActivas from "../components/reportes/MetasAhorroActivas";
 import EstadisticasGastos from "../components/reportes/EstadisticasGastos";
+import MetasCompletadasRecientemente from "../components/reportes/MetasCompletadasRecientemente";
 
 import TituloReporte from "../components/reportes/exportarArchivos/estruturaArchivo/TituloReporte";
 import CabeceraReporte from "../components/reportes/exportarArchivos/estruturaArchivo/CabeceraReporte";
@@ -176,13 +177,13 @@ export default function Reportes({
 
     // Calcular gasto total
     const gastoTotal = gastosFiltrados.reduce(
-      (total, gasto) => total + gasto.gasto,
+      (total, gasto) => total + Number(gasto.gasto),
       0
     );
 
     // Calcular ingresos extras
     const ingresoExtra = ingresosExtraFiltrados.reduce(
-      (total, ingreso) => total + ingreso.monto,
+      (total, ingreso) => total + Number(ingreso.monto),
       0
     );
 
@@ -230,15 +231,14 @@ export default function Reportes({
     });
 
     // Calcular presupuesto aplicable según el periodo
-    let presupuestoMensual = presupuesto / 12;
     let presupuestoAplicable;
 
     if (periodoSeleccionado === "mensual") {
-      presupuestoAplicable = presupuestoMensual + ingresoExtra;
-    } else if (periodoSeleccionado === "trimestral") {
-      presupuestoAplicable = presupuestoMensual * 3 + ingresoExtra;
-    } else {
       presupuestoAplicable = presupuesto + ingresoExtra;
+    } else if (periodoSeleccionado === "trimestral") {
+      presupuestoAplicable = presupuesto * 3 + ingresoExtra;
+    } else {
+      presupuestoAplicable = presupuesto * 12 + ingresoExtra;
     }
 
     // Calcular porcentaje de cumplimiento del presupuesto
@@ -257,7 +257,7 @@ export default function Reportes({
       (gasto) => gasto.categoria === "Ahorro"
     );
     const totalGastosAhorro = gastosAhorro.reduce(
-      (total, gasto) => total + gasto.gasto,
+      (total, gasto) => total + Number(gasto.gasto),
       0
     );
 
@@ -273,7 +273,7 @@ export default function Reportes({
           ahorrosPorMeta[nombreMeta] = 0;
         }
 
-        ahorrosPorMeta[nombreMeta] += gasto.gasto;
+        ahorrosPorMeta[nombreMeta] += Number(gasto.gasto);
       }
     });
 
@@ -282,11 +282,11 @@ export default function Reportes({
     const metasCompletadas = metasAhorroData.filter((meta) => meta.completada);
 
     const totalMetasAhorro = metasAhorroData.reduce(
-      (total, meta) => total + meta.monto,
+      (total, meta) => total + Number(meta.monto),
       0
     );
     const totalAhorrado = metasAhorroData.reduce(
-      (total, meta) => total + (meta.ahorroAcumulado || 0),
+      (total, meta) => total + Number(meta.ahorroAcumulado || 0),
       0
     );
 
@@ -297,7 +297,12 @@ export default function Reportes({
         : 0;
 
     // Calcular ahorro disponible
-    const ahorroDisponible = Math.max(0, presupuestoAplicable - gastoTotal);
+    let ahorroDisponible;
+    if (periodoSeleccionado === "mensual") {
+      ahorroDisponible = Math.max(0, presupuesto - gastoTotal);
+    } else {
+      ahorroDisponible = Math.max(0, presupuestoAplicable - gastoTotal);
+    }
 
     // Calcular tendencia de ahorro (comparando con periodo anterior)
     let tendenciaAhorro = "igual";
@@ -461,10 +466,10 @@ export default function Reportes({
           <div className="overflow-x-auto -mx-4 sm:mx-0 pb-2">
             <div className="px-4 sm:px-0">
               <BarraExportacion 
-                datosReporte={datosReporte} 
+                datosReporte={datosReporte}
                 periodo={tituloPeriodo}
-                metasAhorro={metasAhorro} 
-                formatearFecha={formatearFecha} 
+                metasAhorro={[...(datosReporte.metasActivas || []), ...(datosReporte.metasCompletadas || [])]}
+                formatearFecha={formatearFecha}
               />
             </div>
           </div>
@@ -506,26 +511,105 @@ export default function Reportes({
         <DesgloseAhorroPorMeta datosReporte={datosReporte} />
       </SeccionColapsable>
 
-      {/* Progreso de Metas de Ahorro */}
-      <SeccionColapsable titulo="Progreso de Metas de Ahorro" id="progresoMetas">
-        <ProgresoMetasAhorro 
-          metasAhorro={metasAhorro} 
-          datosReporte={datosReporte} 
-          formatearFecha={formatearFecha} 
-        />
+      {/* Historial de aportes recientes por meta */}
+      <SeccionColapsable titulo="Historial de Aportes por Meta" id="historialAportes">
+        {metasAhorro.filter(meta => !meta.completada).length === 0 ? (
+          <div className="py-8 text-center text-gray-500">No hay metas activas para mostrar historial de aportes.</div>
+        ) : (
+          metasAhorro.filter(meta => !meta.completada).map(meta => {
+            const aportes = gastosState
+              .filter(g => g.categoria === "Ahorro" && g.metaId === meta.id)
+              .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+            return (
+              <div key={meta.id} className="mb-4">
+                <h4 className="font-semibold text-gray-800">{meta.nombre}</h4>
+                {aportes.length === 0 ? (
+                  <div className="text-gray-400 text-sm">No hay aportes recientes.</div>
+                ) : (
+                  <ul className="text-sm text-gray-700">
+                    {aportes.map(aporte => (
+                      <li key={aporte.id}>
+                        {formatearFecha(aporte.fecha)}: +{aporte.gasto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          })
+        )}
       </SeccionColapsable>
 
-      {/* Desglose por Categorías */}
-      <SeccionColapsable titulo="Desglose por Categorías" id="desgloseCategorias">
-        <DesglosePorCategorias datosReporte={datosReporte} />
+      {/* Tendencia de ahorro */}
+      <SeccionColapsable titulo="Tendencia de Ahorro" id="tendenciaAhorro">
+        {datosReporte.tendenciaAhorro === "igual" ? (
+          <div className="py-8 text-center text-gray-500">Tu ahorro es similar al periodo anterior.</div>
+        ) : (
+          <div className="py-8 text-center">
+            {datosReporte.tendenciaAhorro === "subida" ? (
+              <span className="text-green-600 font-semibold">¡Este periodo ahorraste más que el anterior!</span>
+            ) : (
+              <span className="text-red-600 font-semibold">Este periodo ahorraste menos que el anterior.</span>
+            )}
+          </div>
+        )}
       </SeccionColapsable>
 
-      {/* Metas de Ahorro Activas */}
-      <SeccionColapsable titulo="Metas de Ahorro Activas" id="metasActivas">
-        <MetasAhorroActivas 
-          metasAhorro={metasAhorro} 
-          formatearFecha={formatearFecha} 
-        />
+      {/* Metas completadas recientemente */}
+      <MetasCompletadasRecientemente
+        metasCompletadas={datosReporte.metasCompletadas.map(meta => ({
+          id: meta.id,
+          nombre: meta.nombre,
+          fechaCompletada: formatearFecha(meta.fechaObjetivo),
+        }))}
+      />
+
+      {/* Proyección de tiempo para alcanzar cada meta activa */}
+      <SeccionColapsable titulo="Proyección de Tiempo por Meta" id="proyeccionTiempoMeta">
+        {metasAhorro.filter(meta => !meta.completada).length === 0 ? (
+          <div className="py-8 text-center text-gray-500">No hay metas activas para proyectar tiempo.</div>
+        ) : (
+          <ul className="py-4">
+            {metasAhorro.filter(meta => !meta.completada).map(meta => {
+              const aportes = gastosState.filter(g => g.categoria === "Ahorro" && g.metaId === meta.id);
+              const promedioMensual = aportes.length > 0 ?
+                aportes.reduce((acc, g) => acc + g.gasto, 0) / Math.max(1, aportes.length) : 0;
+              const faltante = meta.monto - (meta.ahorroAcumulado || 0);
+              const mesesRestantes = promedioMensual > 0 ? Math.ceil(faltante / promedioMensual) : 'N/A';
+              return (
+                <li key={meta.id} className="mb-2">
+                  <span className="font-semibold text-gray-800">{meta.nombre}</span>: {mesesRestantes !== 'N/A' ? `aprox. ${mesesRestantes} meses para alcanzar la meta` : 'No hay suficientes datos para proyectar.'}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </SeccionColapsable>
+
+      {/* Recomendaciones personalizadas */}
+      <SeccionColapsable titulo="Recomendaciones" id="recomendaciones">
+        {metasAhorro.filter(meta => !meta.completada).length === 0 ? (
+          <div className="py-8 text-center text-gray-500">Agrega metas de ahorro para recibir recomendaciones personalizadas.</div>
+        ) : (
+          <ul className="py-4">
+            {metasAhorro.filter(meta => !meta.completada).map(meta => {
+              const aportes = gastosState.filter(g => g.categoria === "Ahorro" && g.metaId === meta.id);
+              const promedioMensual = aportes.length > 0 ?
+                aportes.reduce((acc, g) => acc + g.gasto, 0) / Math.max(1, aportes.length) : 0;
+              const faltante = meta.monto - (meta.ahorroAcumulado || 0);
+              const mesesRestantes = promedioMensual > 0 ? Math.ceil(faltante / promedioMensual) : null;
+              return (
+                <li key={meta.id} className="mb-2">
+                  {mesesRestantes ? (
+                    <span>¡Vas por buen camino! Si mantienes este ritmo, alcanzarás <b>{meta.nombre}</b> en <b>{mesesRestantes} meses</b>.</span>
+                  ) : (
+                    <span>Comienza a ahorrar en <b>{meta.nombre}</b> para recibir recomendaciones.</span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </SeccionColapsable>
     </div>
   );
