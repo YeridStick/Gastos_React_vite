@@ -54,31 +54,42 @@ const AuthPages = ({ onLoginSuccess }) => {
   const handleRegister = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    
+
     try {
+      // The service call is expected to handle HTTP errors and return data on success or server-side error in body
       const data = await registerUser(credentials);
 
-      if (data.success) {
+      // Assume successful registration if data contains an 'id'
+      if (data && data.id) {
         Swal.fire({
           title: "¡Registro exitoso!",
-          text: "A continuación solicitaremos un código de verificación",
+          text: data.message || "Usuario registrado correctamente.", // Use server message if available, or a default
           icon: "success",
           confirmButtonColor: "#3b82f6",
         });
-        requestVerificationCode();
-      } else {
-        Swal.fire({
+        // If registration is successful, request the verification code
+        handleRequestCode();
+      } else if (data && data.message) { // If no 'id' but a message, assume it's a server-side error message
+         Swal.fire({
           title: "Error",
-          text: data.message || "Hubo un problema al registrar el usuario",
+          text: data.message, // Use the specific error message from the server
+          icon: "error",
+          confirmButtonColor: "#3b82f6",
+        });
+      } else { // Handle cases where response data is missing or unexpected format
+         Swal.fire({
+          title: "Error",
+          text: "Respuesta inesperada del servidor al registrar usuario.",
           icon: "error",
           confirmButtonColor: "#3b82f6",
         });
       }
     } catch (error) {
       console.error("Error al registrar:", error);
+      // Catch block handles network errors or errors thrown by the service for non-ok responses
       Swal.fire({
         title: "Error",
-        text: "No se pudo conectar con el servidor",
+        text: error.message || "No se pudo conectar con el servidor",
         icon: "error",
         confirmButtonColor: "#3b82f6",
       });
@@ -93,33 +104,40 @@ const AuthPages = ({ onLoginSuccess }) => {
     setIsLoading(true);
     
     try {
+      // The service call is expected to handle HTTP errors and return data on success or server-side error in body
       const data = await requestVerificationCode(credentials.email);
 
-      // Check if the response was successful based on the HTTP status code
-      // and optionally check for the expected message in the response body
-      if (data && data.message) { // Assuming the server returns { message: "..." } on success
+      // Assume success if data has a message and it does NOT indicate an error
+      if (data && data.message && !data.message.toLowerCase().includes('error')) {
         setIsCodeSent(true);
         setCountdown(300); // 5 minutos en segundos
         Swal.fire({
           title: "¡Código enviado!",
-          text: data.message, // Use the message from the server response
+          text: data.message,
           icon: "success",
           confirmButtonColor: "#3b82f6",
         });
-      } else {
-        // Handle cases where response is not ok or doesn't contain the expected message
-        Swal.fire({
+      } else if (data && data.message) { // If data has a message and it *does* indicate an error
+         Swal.fire({
           title: "Error",
-          text: data.message || "No se pudo enviar el código de verificación",
+          text: data.message,
+          icon: "error",
+          confirmButtonColor: "#3b82f6",
+        });
+      } else { // Handle cases where response data is missing or unexpected format
+         Swal.fire({
+          title: "Error",
+          text: "No se pudo enviar el código de verificación",
           icon: "error",
           confirmButtonColor: "#3b82f6",
         });
       }
     } catch (error) {
       console.error("Error al solicitar código:", error);
+      // Catch block handles network errors or errors thrown by the service for non-ok responses
       Swal.fire({
         title: "Error de conexión",
-        text: "No se pudo conectar con el servidor",
+        text: error.message || "No se pudo conectar con el servidor",
         icon: "error",
         confirmButtonColor: "#3b82f6",
       });
@@ -145,10 +163,12 @@ const AuthPages = ({ onLoginSuccess }) => {
     setIsLoading(true);
     
     try {
+      // The service call is expected to handle HTTP errors and return data with token on success or message on failure
       const data = await verifyCode(credentials.email, verificationCode);
 
-      if (data.token) {
-        // Mostrar mensaje de sincronización en proceso
+      // Assume success if data contains a token
+      if (data && data.token) {
+        // Show syncing message
         Swal.fire({
           title: "Sincronizando",
           text: "Obteniendo tus datos financieros...",
@@ -163,20 +183,17 @@ const AuthPages = ({ onLoginSuccess }) => {
 
         let syncSuccess = false;
         
-        // Si se eligió preservar datos, primero sincronizamos al servidor los datos locales
+        // If preserve data was chosen, first sync local data to server
         if (preserveData && !isLogin) {
           try {
-            // Subir primero los datos locales
             await uploadLocalData(credentials.email, data.token);
-            
-            // Luego obtener la versión consolidada desde el servidor
             syncSuccess = await syncInitialDataAfterLogin(credentials.email, data.token);
           } catch (err) {
             console.error("Error al sincronizar datos locales:", err);
             syncSuccess = false;
           }
         } else {
-          // Si es login normal o registro sin preservar, solo descargamos del servidor
+          // If normal login or signup without preserving data, just download from server
           try {
             syncSuccess = await syncInitialDataAfterLogin(credentials.email, data.token);
           } catch (err) {
@@ -185,10 +202,8 @@ const AuthPages = ({ onLoginSuccess }) => {
           }
         }
 
-        // Cerrar el mensaje de carga
         Swal.close();
         
-        // Mostrar mensaje según el resultado
         if (syncSuccess) {
           Swal.fire({
             title: "¡Inicio de sesión exitoso!",
@@ -205,26 +220,32 @@ const AuthPages = ({ onLoginSuccess }) => {
           });
         }
 
-        // Llamar a la función de éxito de inicio de sesión
         if (onLoginSuccess) {
           onLoginSuccess(data);
         }
 
-        // Redirigir al dashboard
         navigate("/dashboard");
-      } else {
-        Swal.fire({
+      } else if (data && data.message) { // If no token but a message, assume it's a server-side error message
+         Swal.fire({
           title: "Error de verificación",
-          text: data.message || "Código incorrecto o expirado",
+          text: data.message, // Use the specific error message from the server
+          icon: "error",
+          confirmButtonColor: "#3b82f6",
+        });
+      } else { // Handle cases where response data is missing or unexpected format
+         Swal.fire({
+          title: "Error de verificación",
+          text: "Respuesta inesperada del servidor.", // Fallback message
           icon: "error",
           confirmButtonColor: "#3b82f6",
         });
       }
     } catch (error) {
       console.error("Error al verificar código:", error);
+      // Catch block handles network errors or errors thrown by the service for non-ok responses
       Swal.fire({
         title: "Error de conexión",
-        text: "No se pudo conectar con el servidor",
+        text: error.message || "No se pudo conectar con el servidor",
         icon: "error",
         confirmButtonColor: "#3b82f6",
       });
