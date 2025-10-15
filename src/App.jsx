@@ -7,7 +7,7 @@ import {
   Outlet,
   useLocation,
 } from "react-router-dom";
-import PropTypes from 'prop-types';
+import PropTypes from "prop-types";
 import Swal from "sweetalert2";
 
 // Componentes
@@ -25,6 +25,22 @@ import GestionAhorro from "./pages/GestionAhorro";
 import Recordatorios from "./pages/Recordatorios";
 import DataManagement from "./pages/DataManagement.jsx";
 
+// Nuevos componentes de Inventario
+import Productos from "./pages/invetario/Productos";
+import Stock from "./pages/invetario/Stock";
+import Movimientos from "./pages/invetario/Movimientos";
+import CategoriasInventario from "./pages/invetario/CategoriasInventario";
+import ReportesInventario from "./pages/invetario/ReportesInventario";
+import ConfiguracionInventario from "./pages/invetario/ConfiguracionInventario";
+
+// Nuevos componentes de Facturación Electrónica
+import FacturacionElectronica from "./pages/facturacion/FacturacionElectronica";
+import Cliente from "./pages/facturacion/Clientes.jsx";
+import Cotizaciones from "./pages/facturacion/Cotizaciones.jsx";
+import ReportesVentas from "./pages/facturacion/ReportesVentas.jsx";
+
+import ConfiguracionDIAN from "./pages/DIAN/ConfiguracionDIAN";
+
 // Modales
 import Modal from "./components/Modal/General/Modal";
 import ModalIngresoExtra from "./components/Modal/ModalIngresoExtra";
@@ -36,7 +52,7 @@ import {
   setupSyncObserver,
   handleLogout,
   setupSessionConflictDetection,
-} from "../src/services/syncService.jsx"
+} from "../src/services/syncService.jsx";
 
 // Funciones
 import { generarID } from "./helpers/index";
@@ -282,7 +298,7 @@ function App() {
   };
 
   // Función para manejar el éxito del inicio de sesión
-  const handleLoginSuccess = (data) => {
+  const handleLoginSuccess = () => {
     setIsAuthenticated(true);
 
     // Cargar estados desde localStorage después de la sincronización
@@ -420,7 +436,6 @@ function App() {
         setIngresosExtra([]);
         setMetas([]);
 
-        // Limpiar localStorage
         localStorage.removeItem("ObjetosGastos");
         localStorage.removeItem("PresupuestoLS");
         localStorage.removeItem("ValidLS");
@@ -428,6 +443,14 @@ function App() {
         localStorage.removeItem("MetasAhorro");
         localStorage.removeItem("categorias");
         localStorage.removeItem("recordatorios");
+
+        localStorage.removeItem("productos");
+        localStorage.removeItem("movimientos");
+        localStorage.removeItem("categorias_inventario");
+        localStorage.removeItem("facturas");
+        localStorage.removeItem("clientes");
+        localStorage.removeItem("cotizaciones");
+        localStorage.removeItem("configuracion_inventario");
 
         // Sincronizar con servidor para reflejar los cambios
         syncDataToServer();
@@ -774,6 +797,54 @@ function App() {
       path: "/gestion-datos",
       element: <DataManagement onSyncData={handleManualSync} />,
     },
+    {
+      path: "/inventario/productos",
+      element: <Productos />,
+    },
+    {
+      path: "/inventario/stock",
+      element: <Stock />,
+    },
+    {
+      path: "/inventario/movimientos",
+      element: <Movimientos />,
+    },
+    {
+      path: "/inventario/categorias",
+      element: <CategoriasInventario />,
+    },
+    {
+      path: "/inventario/reportes",
+      element: <ReportesInventario />,
+    },
+    {
+      path: "/inventario/configuracion",
+      element: <ConfiguracionInventario />,
+    },
+
+    // Rutas de Facturación Electrónica
+    {
+      path: "/facturacion/facturas",
+      element: <FacturacionElectronica />,
+    },
+    {
+      path: "/facturacion/clientes",
+      element: <Cliente />,
+    },
+
+    {
+      path: "/facturacion/cotizaciones",
+      element: <Cotizaciones />,
+    },
+    {
+      path: "/facturacion/reportes",
+      element: <ReportesVentas />,
+    },
+
+    {
+      path: "/facturacion/configuracion-dian",
+      element: <ConfiguracionDIAN />,
+    },
   ];
 
   return (
@@ -845,12 +916,12 @@ function App() {
                   />
 
                   <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6">
-                  <PresupuestoSetup
-                        presupuesto={presupuesto}
-                        setPresupuesto={setPresupuesto}
-                        setIsValid={setIsValid}
-                        setActiveTab={setActiveTab}
-                      />
+                    <PresupuestoSetup
+                      presupuesto={presupuesto}
+                      setPresupuesto={setPresupuesto}
+                      setIsValid={setIsValid}
+                      setActiveTab={setActiveTab}
+                    />
                   </main>
                 </div>
               </div>
