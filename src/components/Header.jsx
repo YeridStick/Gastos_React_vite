@@ -1,17 +1,34 @@
 import { useState, useEffect, useRef } from "react";
 import { cantidad } from "../helpers/index";
 
+const parseStorageArray = (keys) => {
+  for (const key of keys) {
+    const raw = localStorage.getItem(key);
+    if (!raw) continue;
+    try {
+      const data = JSON.parse(raw);
+      if (Array.isArray(data)) return data;
+    } catch (error) {
+      console.error(`Error al leer ${key}:`, error);
+    }
+  }
+  return [];
+};
+
 export default function Header({
   setIsSidebarOpen,
   isSidebarOpen,
   metas = [],
   disponibleMensual = 0,
+  activeTab = "dashboard",
+  onLogout,
+  onNavigate,
 }) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [notificaciones, setNotificaciones] = useState([]);
+  const [notificationRefresh, setNotificationRefresh] = useState(0);
   const notificacionesRef = useRef(null);
 
-  // Cerrar menú de notificaciones al hacer clic fuera de él
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
@@ -28,41 +45,41 @@ export default function Header({
     };
   }, []);
 
-  // Generar notificaciones basadas en metas, presupuesto disponible y recordatorios
+  useEffect(() => {
+    const timer = setInterval(() => setNotificationRefresh(Date.now()), 5000);
+    return () => clearInterval(timer);
+  }, []);
+
   useEffect(() => {
     const nuevasNotificaciones = [];
 
-    // Verificar metas que necesitan atención
     metas.forEach((meta) => {
-      if (meta.completada) return; // Ignorar metas completadas
+      if (meta.completada) return;
 
-      // Meta con poco tiempo restante (menos de 30 días)
       if (meta.diasRestantes < 30) {
         nuevasNotificaciones.push({
           id: `tiempo-${meta.id}`,
-          titulo: "Fecha límite cercana",
-          mensaje: `Tu meta "${meta.nombre}" vence en ${meta.diasRestantes} días.`,
+          titulo: "Fecha limite cercana",
+          mensaje: `Tu meta "${meta.nombre}" vence en ${meta.diasRestantes} dias.`,
           tipo: "warning",
           fecha: Date.now(),
         });
       }
 
-      // Meta con ahorro mensual superior al disponible
       if (meta.ahorroMensual > disponibleMensual && disponibleMensual > 0) {
         nuevasNotificaciones.push({
           id: `presupuesto-${meta.id}`,
-          titulo: "Meta difícil de alcanzar",
+          titulo: "Meta dificil de alcanzar",
           mensaje: `Necesitas ahorrar ${cantidad(
             meta.ahorroMensual
-          )} al mes para "${
-            meta.nombre
-          }", pero solo tienes disponible ${cantidad(disponibleMensual)}.`,
+          )} al mes para "${meta.nombre}", pero solo tienes disponible ${cantidad(
+            disponibleMensual
+          )}.`,
           tipo: "danger",
           fecha: Date.now(),
         });
       }
 
-      // Meta con poco progreso respecto al tiempo transcurrido
       const porcentajeCompletado = (meta.ahorroAcumulado / meta.monto) * 100;
       const porcentajeTiempoTranscurrido =
         ((new Date() - new Date(meta.creada)) /
@@ -84,7 +101,6 @@ export default function Header({
       }
     });
 
-    // Verificar recordatorios de pago próximos y vencidos
     try {
       const recordatoriosGuardados = localStorage.getItem("recordatorios");
 
@@ -92,7 +108,6 @@ export default function Header({
         const recordatorios = JSON.parse(recordatoriosGuardados);
         const hoy = Date.now();
 
-        // Filtrar recordatorios pendientes y próximos
         const recordatoriosProximos = recordatorios.filter(
           (r) =>
             r.estado === "pendiente" &&
@@ -101,14 +116,12 @@ export default function Header({
               r.diasAnticipacion
         );
 
-        // Filtrar recordatorios vencidos
         const recordatoriosVencidos = recordatorios.filter(
           (r) =>
             r.estado === "vencido" ||
             (r.estado === "pendiente" && r.fechaVencimiento < hoy)
         );
 
-        // Añadir notificaciones para recordatorios próximos
         recordatoriosProximos.forEach((recordatorio) => {
           const diasRestantes = Math.ceil(
             (recordatorio.fechaVencimiento - hoy) / (1000 * 60 * 60 * 24)
@@ -116,11 +129,11 @@ export default function Header({
 
           nuevasNotificaciones.push({
             id: `proximo-${recordatorio.id}`,
-            titulo: "Pago próximo",
+            titulo: "Pago proximo",
             mensaje: `Tu pago de "${recordatorio.titulo}" por ${cantidad(
               recordatorio.monto
             )} vence en ${diasRestantes} ${
-              diasRestantes === 1 ? "día" : "días"
+              diasRestantes === 1 ? "dia" : "dias"
             }.`,
             tipo: "warning",
             fecha: Date.now(),
@@ -128,7 +141,6 @@ export default function Header({
           });
         });
 
-        // Añadir notificaciones para recordatorios vencidos
         recordatoriosVencidos.forEach((recordatorio) => {
           const diasVencidos = Math.abs(
             Math.floor(
@@ -141,8 +153,8 @@ export default function Header({
             titulo: "Pago vencido",
             mensaje: `Tu pago de "${recordatorio.titulo}" por ${cantidad(
               recordatorio.monto
-            )} está vencido por ${diasVencidos} ${
-              diasVencidos === 1 ? "día" : "días"
+            )} esta vencido por ${diasVencidos} ${
+              diasVencidos === 1 ? "dia" : "dias"
             }.`,
             tipo: "danger",
             fecha: Date.now(),
@@ -151,41 +163,99 @@ export default function Header({
         });
       }
     } catch (error) {
-      console.error(
-        "Error al cargar recordatorios para notificaciones:",
-        error
-      );
+      console.error("Error al cargar recordatorios para notificaciones:", error);
     }
 
-    // Actualizar notificaciones
-    if (nuevasNotificaciones.length > 0) {
-      setNotificaciones(nuevasNotificaciones);
-    }
-  }, [metas, disponibleMensual]);
+    try {
+      const products = parseStorageArray(["inventario", "Inventario", "productos", "Productos", "inventory", "InventoryItems"]);
+      const suppliers = parseStorageArray(["proveedores", "Proveedores", "suppliers"]);
+      const settingsRaw = localStorage.getItem("inventarioConfig");
+      const settings = settingsRaw ? JSON.parse(settingsRaw) : {};
+      const lowStockMultiplier = Number(settings.lowStockMultiplier ?? 1);
 
-  // Manejar clic en notificación
+      const lowStockProducts = products.filter((p) => {
+        const cantidadActual = Number(p.cantidad ?? p.stock ?? p.quantity ?? 0);
+        const minimo = Number(p.minimo ?? p.stockMinimo ?? p.minStock ?? 0);
+        if (minimo <= 0) return false;
+        const limit = Math.max(minimo, Math.ceil(minimo * (Number.isFinite(lowStockMultiplier) ? lowStockMultiplier : 1)));
+        return cantidadActual <= limit;
+      });
+
+      lowStockProducts.slice(0, 6).forEach((product, idx) => {
+        const category = String(product.categoria ?? product.category ?? "").toLowerCase();
+        const productName = String(product.nombre ?? product.name ?? "").toLowerCase();
+        const matchingSuppliers = suppliers.filter((supplier) => {
+          if ((supplier.tipoSuministro ?? "producto") !== "producto") return false;
+          const categories = String(supplier.categorias ?? "")
+            .split(",")
+            .map((v) => v.trim().toLowerCase())
+            .filter(Boolean);
+          const offeredProducts = String(supplier.productosCatalogo ?? "")
+            .split(",")
+            .map((v) => v.trim().toLowerCase())
+            .filter(Boolean);
+          const byCategory = categories.includes(category);
+          const byProduct = offeredProducts.some((v) => v === productName || productName.includes(v));
+          return byCategory || byProduct;
+        });
+
+        const title = matchingSuppliers.length > 0 ? "Stock bajo detectado" : "Stock bajo sin proveedor";
+        const detail = matchingSuppliers.length > 0
+          ? `Producto "${product.nombre ?? product.name}" con bajo stock. Puedes preparar pedido desde Proveedores.`
+          : `Producto "${product.nombre ?? product.name}" con bajo stock y sin proveedor compatible en su categoria.`;
+
+        nuevasNotificaciones.push({
+          id: `stock-${product.id ?? idx}`,
+          titulo: title,
+          mensaje: detail,
+          tipo: matchingSuppliers.length > 0 ? "warning" : "danger",
+          fecha: Date.now(),
+          link: "inventarioProveedores",
+        });
+      });
+    } catch (error) {
+      console.error("Error al generar notificaciones de inventario:", error);
+    }
+
+    setNotificaciones(nuevasNotificaciones);
+  }, [metas, disponibleMensual, notificationRefresh]);
+
   const handleNotificationClick = (notificacion) => {
-    // Si la notificación tiene un link, navegar a esa sección
     if (notificacion.link) {
-      // Aquí puedes implementar la navegación a la sección correspondiente
-      // Por ejemplo, usando React Router o cambiando el estado en el componente principal
-      //console.log(`Navegar a: ${notificacion.link}`);
-
-      // Cierra el panel de notificaciones
+      if (typeof onNavigate === "function") {
+        onNavigate(notificacion.link);
+      }
       setShowNotifications(false);
     }
   };
 
+  const getSectionLabel = () => {
+    if (activeTab === "dashboard") return "Panel principal";
+    if (["gastos", "categorias", "recordatorios"].includes(activeTab)) {
+      return "Gestion de gastos";
+    }
+    if (activeTab.startsWith("inventario")) {
+      return "Gestion de inventario";
+    }
+    if (
+      ["facturas", "clientes", "cotizaciones", "reportesVentas", "configDian"].includes(
+        activeTab
+      )
+    ) {
+      return "Facturacion electronica";
+    }
+    return "Ahorro";
+  };
+
   return (
-    <header className="bg-white shadow-sm z-10">
+    <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 shadow-sm backdrop-blur">
       <div className="flex items-center justify-between px-4 py-3 md:px-6">
         <div className="flex items-center">
-          {/* Botón de hamburguesa para móvil */}
           <button
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className="md:hidden mr-3 p-2 rounded-md text-gray-500 hover:text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+            className="md:hidden mr-3 p-2 rounded-md text-slate-500 hover:text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-slate-500"
           >
-            <span className="sr-only">Abrir menú</span>
+            <span className="sr-only">Abrir menu</span>
             <svg
               className="h-6 w-6"
               xmlns="http://www.w3.org/2000/svg"
@@ -203,33 +273,41 @@ export default function Header({
             </svg>
           </button>
 
-          {/* Logo */}
           <div className="hidden sm:flex items-center">
-            <svg
-              className="h-8 w-8 text-blue-600"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            <span className="ml-2 text-xl font-bold text-gray-900">
-              Gestión de Gastos
-            </span>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900 text-white">
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="m3 7 9-4 9 4-9 4-9-4Zm0 0v10l9 4 9-4V7"
+                />
+              </svg>
+            </div>
+            <div className="ml-2">
+              <p className="text-sm font-semibold text-slate-900">Sistema administrativo</p>
+              <p className="text-xs text-slate-500">{getSectionLabel()}</p>
+            </div>
           </div>
         </div>
 
-        {/* Acciones del usuario */}
         <div className="flex items-center space-x-4">
-          {/* Botón de notificaciones */}
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              className="hidden sm:inline-flex rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100"
+            >
+              Cerrar sesion
+            </button>
+          )}
           <div className="relative" ref={notificacionesRef}>
             <button
-              className="p-2 rounded-full bg-gray-100 text-gray-500 hover:text-gray-600 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 relative"
+              className="p-2 rounded-full bg-slate-100 text-slate-500 hover:text-slate-700 hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 relative transition-colors"
               onClick={() => setShowNotifications(!showNotifications)}
             >
               <span className="sr-only">Ver notificaciones</span>
@@ -247,25 +325,23 @@ export default function Header({
                 />
               </svg>
 
-              {/* Indicador de notificaciones */}
               {notificaciones.length > 0 && (
-                <span className="absolute top-0 right-0 block h-3 w-3 sm:h-4 sm:w-4 rounded-full ring-2 ring-white bg-red-500 text-white text-xs flex items-center justify-center font-medium">
+                <span className="absolute top-0 right-0 block h-3 w-3 sm:h-4 sm:w-4 rounded-full ring-2 ring-white bg-rose-500 text-white text-xs flex items-center justify-center font-medium">
                   {notificaciones.length > 9 ? "9+" : notificaciones.length}
                 </span>
               )}
             </button>
 
-            {/* Panel de notificaciones */}
             {showNotifications && (
               <div className="origin-top-right absolute right-0 mt-2 w-64 sm:w-80 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
-                <div className="py-2 px-3 sm:px-4 border-b border-gray-200">
+                <div className="py-2 px-3 sm:px-4 border-b border-slate-200">
                   <div className="flex justify-between items-center">
-                    <h3 className="text-xs sm:text-sm font-medium text-gray-900">
+                    <h3 className="text-xs sm:text-sm font-medium text-slate-900">
                       Notificaciones
                     </h3>
                     {notificaciones.length > 0 && (
                       <button
-                        className="text-xs text-gray-500 hover:text-gray-700"
+                        className="text-xs text-slate-500 hover:text-slate-700"
                         onClick={() => setNotificaciones([])}
                       >
                         Marcar todas
@@ -276,11 +352,11 @@ export default function Header({
 
                 <div className="max-h-60 sm:max-h-80 overflow-y-auto">
                   {notificaciones.length > 0 ? (
-                    <div className="divide-y divide-gray-200">
+                    <div className="divide-y divide-slate-200">
                       {notificaciones.map((notificacion) => (
                         <div
                           key={notificacion.id}
-                          className={`px-3 sm:px-4 py-2 sm:py-3 hover:bg-gray-50 ${
+                          className={`px-3 sm:px-4 py-2 sm:py-3 hover:bg-slate-50 ${
                             notificacion.link ? "cursor-pointer" : ""
                           }`}
                           onClick={() =>
@@ -292,10 +368,10 @@ export default function Header({
                             <div
                               className={`flex-shrink-0 rounded-full p-1 ${
                                 notificacion.tipo === "danger"
-                                  ? "bg-red-100 text-red-600"
+                                  ? "bg-rose-100 text-rose-600"
                                   : notificacion.tipo === "warning"
-                                  ? "bg-yellow-100 text-yellow-600"
-                                  : "bg-blue-100 text-blue-600"
+                                  ? "bg-amber-100 text-amber-600"
+                                  : "bg-sky-100 text-sky-600"
                               }`}
                             >
                               {notificacion.tipo === "danger" && (
@@ -345,10 +421,10 @@ export default function Header({
                               )}
                             </div>
                             <div className="ml-2 sm:ml-3 flex-1">
-                              <p className="text-xs sm:text-sm font-medium text-gray-900">
+                              <p className="text-xs sm:text-sm font-medium text-slate-900">
                                 {notificacion.titulo}
                               </p>
-                              <p className="mt-0.5 sm:mt-1 text-xs text-gray-500 line-clamp-2">
+                              <p className="mt-0.5 sm:mt-1 text-xs text-slate-500 line-clamp-2">
                                 {notificacion.mensaje}
                               </p>
                             </div>
@@ -357,7 +433,7 @@ export default function Header({
                       ))}
                     </div>
                   ) : (
-                    <div className="px-4 py-6 text-center text-xs sm:text-sm text-gray-500">
+                    <div className="px-4 py-6 text-center text-xs sm:text-sm text-slate-500">
                       No hay notificaciones pendientes
                     </div>
                   )}

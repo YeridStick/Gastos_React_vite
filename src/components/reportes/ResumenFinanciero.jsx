@@ -26,7 +26,7 @@ const ResumenFinanciero = ({ datosReporte }) => {
                         : "bg-green-100 text-green-800"
                     }`}
                   >
-                    {datosReporte.tendencia === "subida" ? "↑" : "↓"} vs
+                    {datosReporte.tendencia === "subida" ? "â†‘" : "â†“"} vs
                     anterior
                   </span>
                 )}

@@ -42,6 +42,44 @@ const DashboardCard = ({ title, amount, color, icon, trend, percentage }) => {
   );
 };
 
+const toNum = (value) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+};
+
+const parseStorageArray = (keys) => {
+  for (const key of keys) {
+    const raw = localStorage.getItem(key);
+    if (!raw) continue;
+    try {
+      const data = JSON.parse(raw);
+      if (Array.isArray(data)) return data;
+    } catch (error) {
+      console.error(`Error leyendo ${key}:`, error);
+    }
+  }
+  return [];
+};
+
+const dateKey = (value) => {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+
+const monthKey = (value) => dateKey(value).slice(0, 7);
+
+const looksLikeSale = (movement) => {
+  const t = String(movement?.tipo ?? movement?.type ?? "").toLowerCase();
+  if (t === "venta") return true;
+  if (t !== "salida") return false;
+  const detail = String(movement?.detalle ?? movement?.descripcion ?? "").toLowerCase();
+  return detail.includes("venta");
+};
+
 export default function Dashboard({
   presupuesto,
   setPresupuesto,
@@ -61,6 +99,34 @@ export default function Dashboard({
   const [categoriasInfo, setCategoriasInfo] = useState({});
   const [mostrarMenu, setMostrarMenu] = useState(false);
   const [actividadReciente, setActividadReciente] = useState([]);
+  const [dashboardView, setDashboardView] = useState("gastos");
+  const [inventoryDay, setInventoryDay] = useState(dateKey(Date.now()));
+  const [inventoryMonth, setInventoryMonth] = useState(monthKey(Date.now()));
+  const [inventorySummary, setInventorySummary] = useState({
+    productsCount: 0,
+    stockUnits: 0,
+    stockValueCost: 0,
+    totalInvestment: 0,
+    totalSales: 0,
+    totalProfit: 0,
+    salesCount: 0,
+    soldUnits: 0,
+  });
+  const [inventoryDaily, setInventoryDaily] = useState({
+    investment: 0,
+    sales: 0,
+    profit: 0,
+    salesCount: 0,
+    soldUnits: 0,
+  });
+  const [inventoryMonthly, setInventoryMonthly] = useState({
+    investment: 0,
+    sales: 0,
+    profit: 0,
+    salesCount: 0,
+    soldUnits: 0,
+  });
+  const [inventoryRecentMoves, setInventoryRecentMoves] = useState([]);
   const menuRef = useRef(null);
 
   // Cerrar el menú al hacer clic fuera de él
@@ -250,8 +316,142 @@ export default function Dashboard({
     return `${fecha.getDate()}/${fecha.getMonth() + 1}/${fecha.getFullYear()}`;
   };
 
+  useEffect(() => {
+    const productsRaw = parseStorageArray([
+      "inventario",
+      "Inventario",
+      "productos",
+      "Productos",
+      "inventory",
+      "InventoryItems",
+    ]);
+    const movesRaw = parseStorageArray([
+      "movimientosInventario",
+      "MovimientosInventario",
+      "movimientos",
+      "Movimientos",
+    ]);
+
+    const products = productsRaw.map((item, index) => ({
+      id: item.id ?? item.codigo ?? `prod-${index}`,
+      nombre: item.nombre ?? item.name ?? "Producto",
+      cantidad: toNum(item.cantidad ?? item.stock ?? item.quantity),
+      costoUnitario: toNum(item.costoUnitario ?? item.costo ?? item.precio ?? item.valor ?? item.price),
+      precioVenta: toNum(item.precioVenta ?? item.precioVentaUnitario ?? item.salePrice ?? item.precio),
+    }));
+
+    const moves = movesRaw.map((item, index) => ({
+      id: item.id ?? `mov-${index}`,
+      fecha: item.fecha ?? item.date ?? Date.now(),
+      tipo: String(item.tipo ?? item.type ?? "movimiento").toLowerCase(),
+      detalle: item.detalle ?? item.descripcion ?? item.description ?? "Sin detalle",
+      productId: item.productId ?? "",
+      producto: item.producto ?? "",
+      cantidad: toNum(item.cantidad ?? item.quantity),
+      montoCompra: toNum(item.montoCompra ?? 0),
+      montoVenta: toNum(item.montoVenta ?? 0),
+    }));
+
+    const getProductByMove = (move) =>
+      products.find((p) => p.id === move.productId || p.nombre === move.producto);
+
+    const saleAmount = (move) => {
+      if (toNum(move.montoVenta) > 0) return toNum(move.montoVenta);
+      const product = getProductByMove(move);
+      return product ? toNum(move.cantidad) * toNum(product.precioVenta) : 0;
+    };
+
+    const saleCost = (move) => {
+      if (toNum(move.montoCompra) > 0) return toNum(move.montoCompra);
+      const product = getProductByMove(move);
+      return product ? toNum(move.cantidad) * toNum(product.costoUnitario) : 0;
+    };
+
+    const saleMoves = moves.filter((m) => looksLikeSale(m));
+    const investmentMoves = moves.filter((m) => !looksLikeSale(m));
+
+    const productsCount = products.length;
+    const stockUnits = products.reduce((acc, p) => acc + toNum(p.cantidad), 0);
+    const stockValueCost = products.reduce((acc, p) => acc + toNum(p.cantidad) * toNum(p.costoUnitario), 0);
+    const totalInvestment = investmentMoves.reduce((acc, m) => acc + toNum(m.montoCompra), 0);
+    const totalSales = saleMoves.reduce((acc, m) => acc + saleAmount(m), 0);
+    const totalSalesCost = saleMoves.reduce((acc, m) => acc + saleCost(m), 0);
+    const totalProfit = totalSales - totalSalesCost;
+    const salesCount = saleMoves.length;
+    const soldUnits = saleMoves.reduce((acc, m) => acc + toNum(m.cantidad), 0);
+
+    const dayRows = moves.filter((m) => dateKey(m.fecha) === inventoryDay);
+    const daySales = dayRows.filter((m) => looksLikeSale(m));
+    const dayInvestment = dayRows.filter((m) => !looksLikeSale(m)).reduce((acc, m) => acc + toNum(m.montoCompra), 0);
+    const daySalesValue = daySales.reduce((acc, m) => acc + saleAmount(m), 0);
+    const daySalesCost = daySales.reduce((acc, m) => acc + saleCost(m), 0);
+
+    const monthRows = moves.filter((m) => monthKey(m.fecha) === inventoryMonth);
+    const monthSales = monthRows.filter((m) => looksLikeSale(m));
+    const monthInvestment = monthRows.filter((m) => !looksLikeSale(m)).reduce((acc, m) => acc + toNum(m.montoCompra), 0);
+    const monthSalesValue = monthSales.reduce((acc, m) => acc + saleAmount(m), 0);
+    const monthSalesCost = monthSales.reduce((acc, m) => acc + saleCost(m), 0);
+
+    setInventorySummary({
+      productsCount,
+      stockUnits,
+      stockValueCost,
+      totalInvestment,
+      totalSales,
+      totalProfit,
+      salesCount,
+      soldUnits,
+    });
+
+    setInventoryDaily({
+      investment: dayInvestment,
+      sales: daySalesValue,
+      profit: daySalesValue - daySalesCost,
+      salesCount: daySales.length,
+      soldUnits: daySales.reduce((acc, m) => acc + toNum(m.cantidad), 0),
+    });
+
+    setInventoryMonthly({
+      investment: monthInvestment,
+      sales: monthSalesValue,
+      profit: monthSalesValue - monthSalesCost,
+      salesCount: monthSales.length,
+      soldUnits: monthSales.reduce((acc, m) => acc + toNum(m.cantidad), 0),
+    });
+
+    setInventoryRecentMoves(
+      moves
+        .slice()
+        .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+        .slice(0, 10)
+    );
+  }, [gastosState, ingresosExtra, inventoryDay, inventoryMonth]);
+
   return (
     <div className="space-y-4 sm:space-y-6">
+      <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
+        <button
+          onClick={() => setDashboardView("gastos")}
+          className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+            dashboardView === "gastos"
+              ? "bg-slate-900 text-white"
+              : "text-slate-600 hover:bg-slate-100"
+          }`}
+        >
+          Solo gastos
+        </button>
+        <button
+          onClick={() => setDashboardView("inventario")}
+          className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+            dashboardView === "inventario"
+              ? "bg-slate-900 text-white"
+              : "text-slate-600 hover:bg-slate-100"
+          }`}
+        >
+          Solo inventario
+        </button>
+      </div>
+
       {/* Encabezado del Dashboard con menú de opciones */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center space-x-2">
@@ -290,34 +490,44 @@ export default function Dashboard({
         </div>
         
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={handleAgregarIngreso}
-            className="px-2 py-1 sm:px-3 sm:py-1.5 bg-green-600 text-white text-xs sm:text-sm font-medium rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 flex items-center"
-          >
-            <svg
-              className="w-3 h-3 sm:w-4 sm:h-4 mr-1"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-              ></path>
-            </svg>
-            Agregar Ingreso
-          </button>
-          <span className="px-2 py-0.5 sm:px-3 sm:py-1 bg-blue-100 text-blue-800 rounded-full text-xs sm:text-sm font-medium">
-            {obtenerMesActual()}
-          </span>
+          {dashboardView === "gastos" ? (
+            <>
+              <button
+                onClick={handleAgregarIngreso}
+                className="px-2 py-1 sm:px-3 sm:py-1.5 bg-green-600 text-white text-xs sm:text-sm font-medium rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 flex items-center"
+              >
+                <svg
+                  className="w-3 h-3 sm:w-4 sm:h-4 mr-1"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                  ></path>
+                </svg>
+                Agregar Ingreso
+              </button>
+              <span className="px-2 py-0.5 sm:px-3 sm:py-1 bg-blue-100 text-blue-800 rounded-full text-xs sm:text-sm font-medium">
+                {obtenerMesActual()}
+              </span>
+            </>
+          ) : (
+            <span className="px-2 py-0.5 sm:px-3 sm:py-1 bg-slate-100 text-slate-700 rounded-full text-xs sm:text-sm font-medium">
+              Resumen de inventario
+            </span>
+          )}
         </div>
       </div>
 
+      {dashboardView === "gastos" ? (
+        <>
       {/* Tarjetas de información resumida */}
-      <div className="grid grid-cols-1 gap-3 sm:gap-6">
+      <div className="grid grid-cols-1 gap-3 sm:gap-6 xl:grid-cols-2">
         <DashboardCard
           title="Presupuesto Total"
           amount={cantidad(presupuesto)}
@@ -639,6 +849,142 @@ export default function Dashboard({
           </p>
         )}
       </div>
+        </>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-3 sm:gap-6 xl:grid-cols-3">
+            <DashboardCard
+              title="Inversion total"
+              amount={cantidad(inventorySummary.totalInvestment, "COP", "es-CO")}
+            />
+            <DashboardCard
+              title="Ventas totales"
+              amount={cantidad(inventorySummary.totalSales, "COP", "es-CO")}
+            />
+            <DashboardCard
+              title="Ganancia total"
+              amount={cantidad(inventorySummary.totalProfit, "COP", "es-CO")}
+            />
+            <DashboardCard
+              title="Cantidad de ventas"
+              amount={inventorySummary.salesCount}
+            />
+            <DashboardCard
+              title="Unidades vendidas"
+              amount={inventorySummary.soldUnits}
+            />
+            <DashboardCard
+              title="Stock total / valor costo"
+              amount={`${inventorySummary.stockUnits} / ${cantidad(inventorySummary.stockValueCost, "COP", "es-CO")}`}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">
+              <div className="flex items-end justify-between gap-3">
+                <h3 className="text-base sm:text-lg font-medium text-gray-900">Resumen diario inventario</h3>
+                <label className="text-xs text-slate-600">
+                  Fecha
+                  <input
+                    type="date"
+                    value={inventoryDay}
+                    onChange={(e) => setInventoryDay(e.target.value)}
+                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  />
+                </label>
+              </div>
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs text-slate-500">Inversion del dia</p>
+                  <p className="mt-1 text-lg font-semibold text-rose-700">{cantidad(inventoryDaily.investment, "COP", "es-CO")}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs text-slate-500">Ventas del dia</p>
+                  <p className="mt-1 text-lg font-semibold text-emerald-700">{cantidad(inventoryDaily.sales, "COP", "es-CO")}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs text-slate-500">Ganancia del dia</p>
+                  <p className="mt-1 text-lg font-semibold text-sky-700">{cantidad(inventoryDaily.profit, "COP", "es-CO")}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs text-slate-500">Ventas / unidades</p>
+                  <p className="mt-1 text-lg font-semibold text-slate-900">{inventoryDaily.salesCount} / {inventoryDaily.soldUnits}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">
+              <div className="flex items-end justify-between gap-3">
+                <h3 className="text-base sm:text-lg font-medium text-gray-900">Resumen mensual inventario</h3>
+                <label className="text-xs text-slate-600">
+                  Mes
+                  <input
+                    type="month"
+                    value={inventoryMonth}
+                    onChange={(e) => setInventoryMonth(e.target.value)}
+                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  />
+                </label>
+              </div>
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs text-slate-500">Inversion del mes</p>
+                  <p className="mt-1 text-lg font-semibold text-rose-700">{cantidad(inventoryMonthly.investment, "COP", "es-CO")}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs text-slate-500">Ventas del mes</p>
+                  <p className="mt-1 text-lg font-semibold text-emerald-700">{cantidad(inventoryMonthly.sales, "COP", "es-CO")}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs text-slate-500">Ganancia del mes</p>
+                  <p className="mt-1 text-lg font-semibold text-sky-700">{cantidad(inventoryMonthly.profit, "COP", "es-CO")}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs text-slate-500">Ventas / unidades</p>
+                  <p className="mt-1 text-lg font-semibold text-slate-900">{inventoryMonthly.salesCount} / {inventoryMonthly.soldUnits}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 overflow-hidden">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-base sm:text-lg font-medium text-gray-900">Movimientos recientes de inventario</h3>
+              <span className="text-xs text-slate-500">Ultimos 10</span>
+            </div>
+            {inventoryRecentMoves.length === 0 ? (
+              <p className="text-gray-500 text-center py-4 text-sm">No hay movimientos de inventario.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Fecha</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Tipo</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Producto</th>
+                      <th className="px-3 py-2 text-right text-xs font-medium uppercase tracking-wider text-gray-500">Cantidad</th>
+                      <th className="px-3 py-2 text-right text-xs font-medium uppercase tracking-wider text-gray-500">Compra</th>
+                      <th className="px-3 py-2 text-right text-xs font-medium uppercase tracking-wider text-gray-500">Venta</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {inventoryRecentMoves.map((mov) => (
+                      <tr key={mov.id} className="hover:bg-gray-50">
+                        <td className="px-3 py-2 text-sm text-gray-700">{formatearFecha(mov.fecha)}</td>
+                        <td className="px-3 py-2 text-sm text-gray-700">{looksLikeSale(mov) ? "venta" : mov.tipo}</td>
+                        <td className="px-3 py-2 text-sm text-gray-700">{mov.producto || "-"}</td>
+                        <td className="px-3 py-2 text-sm text-right text-gray-700">{mov.cantidad}</td>
+                        <td className="px-3 py-2 text-sm text-right text-gray-700">{cantidad(mov.montoCompra, "COP", "es-CO")}</td>
+                        <td className="px-3 py-2 text-sm text-right text-gray-700">{cantidad(mov.montoVenta, "COP", "es-CO")}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

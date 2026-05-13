@@ -16,6 +16,7 @@ import Reportes from "./pages/Reportes";
 import MetasAhorro from "./pages/MetasAhorro";
 import GestionAhorro from "./pages/GestionAhorro";
 import Recordatorios from "./pages/Recordatorios";
+import PrototipoAdministrativo from "./pages/PrototipoAdministrativo";
 
 // Funciones
 import { generarID } from "./helpers/index";
@@ -23,7 +24,7 @@ import { generarID } from "./helpers/index";
 function App() {
   // Estados principales
   const [presupuesto, setPresupuesto] = useState(
-    JSON.parse(localStorage.getItem("PresupuestoLS")) ?? ""
+    JSON.parse(localStorage.getItem("PresupuestoLS")) ?? 0
   );
   const [isValid, setIsValid] = useState(
     JSON.parse(localStorage.getItem("ValidLS")) ?? false
@@ -48,6 +49,18 @@ function App() {
   const [filtros, setFiltros] = useState("");
   const [gastosFiltrados, setGastosFiltrados] = useState([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [usuarios, setUsuarios] = useState(
+    JSON.parse(localStorage.getItem("UsuariosSistema")) ?? []
+  );
+  const [sesionActiva, setSesionActiva] = useState(
+    JSON.parse(localStorage.getItem("SesionActiva")) ?? null
+  );
+  const [authMode, setAuthMode] = useState("login");
+  const [authData, setAuthData] = useState({
+    nombre: "",
+    email: "",
+    password: "",
+  });
 
   // Calcular disponible mensual para ahorro
   useEffect(() => {
@@ -57,13 +70,13 @@ function App() {
       const gastosPorMes = {};
       gastosState.forEach((gasto) => {
         const fecha = new Date(gasto.fecha);
-        const mesAño = `${fecha.getMonth()}-${fecha.getFullYear()}`;
+        const mesAnio = `${fecha.getMonth()}-${fecha.getFullYear()}`;
 
-        if (!gastosPorMes[mesAño]) {
-          gastosPorMes[mesAño] = 0;
+        if (!gastosPorMes[mesAnio]) {
+          gastosPorMes[mesAnio] = 0;
         }
 
-        gastosPorMes[mesAño] += gasto.gasto;
+        gastosPorMes[mesAnio] += gasto.gasto;
       });
 
       // Calcular promedio si hay datos
@@ -101,6 +114,105 @@ function App() {
     }
   }, []);
 
+  useEffect(() => {
+    localStorage.setItem("UsuariosSistema", JSON.stringify(usuarios));
+  }, [usuarios]);
+
+  useEffect(() => {
+    if (sesionActiva) {
+      localStorage.setItem("SesionActiva", JSON.stringify(sesionActiva));
+    } else {
+      localStorage.removeItem("SesionActiva");
+    }
+  }, [sesionActiva]);
+
+  const handleAuthChange = (field, value) => {
+    setAuthData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const resetAuthForm = () => {
+    setAuthData({
+      nombre: "",
+      email: "",
+      password: "",
+    });
+  };
+
+  const handleRegister = () => {
+    const nombre = authData.nombre.trim();
+    const email = authData.email.trim().toLowerCase();
+    const password = authData.password.trim();
+
+    if (!nombre || !email || !password) {
+      Swal.fire(
+        "Campos incompletos",
+        "Completa nombre, correo y contrasena.",
+        "warning"
+      );
+      return;
+    }
+
+    const existe = usuarios.some((user) => user.email === email);
+    if (existe) {
+      Swal.fire("Usuario existente", "Ese correo ya esta registrado.", "info");
+      return;
+    }
+
+    const nuevoUsuario = {
+      id: generarID(),
+      nombre,
+      email,
+      password,
+      createdAt: Date.now(),
+    };
+
+    setUsuarios([nuevoUsuario, ...usuarios]);
+    setSesionActiva({
+      id: nuevoUsuario.id,
+      nombre: nuevoUsuario.nombre,
+      email: nuevoUsuario.email,
+    });
+    resetAuthForm();
+  };
+
+  const handleLogin = () => {
+    const email = authData.email.trim().toLowerCase();
+    const password = authData.password.trim();
+
+    if (!email || !password) {
+      Swal.fire("Campos incompletos", "Ingresa correo y contrasena.", "warning");
+      return;
+    }
+
+    const usuario = usuarios.find(
+      (user) => user.email === email && user.password === password
+    );
+
+    if (!usuario) {
+      Swal.fire(
+        "Acceso denegado",
+        "Correo o contrasena invalidos.",
+        "error"
+      );
+      return;
+    }
+
+    setSesionActiva({
+      id: usuario.id,
+      nombre: usuario.nombre,
+      email: usuario.email,
+    });
+    resetAuthForm();
+  };
+  const handleGuestAccess = () => {
+    setSesionActiva({
+      id: "guest-user",
+      nombre: "Invitado",
+      email: "invitado@local",
+      guest: true,
+    });
+    resetAuthForm();
+  };
   const handleNuevoGasto = () => {
     setModal(true);
     setGastoEditar({});
@@ -108,28 +220,79 @@ function App() {
 
   const deletePresupuesto = () => {
     Swal.fire({
-      title: "¿Estás seguro que quieres reiniciar la aplicación?",
-      icon: "question",
-      confirmButtonText: "Sí",
-      cancelButtonText: "No",
+      title: "Reiniciar aplicacion",
+      text: "Puedes reiniciar solo gastos o reiniciar tambien inventario/facturacion.",
+      icon: "warning",
+      confirmButtonText: "Reiniciar + borrar inventario",
+      denyButtonText: "Solo reiniciar gastos",
+      cancelButtonText: "Cancelar",
       showCancelButton: true,
+      showDenyButton: true,
       showCloseButton: true,
-      confirmButtonColor: "#3b82f6",
+      confirmButtonColor: "#ef4444",
+      denyButtonColor: "#3b82f6",
       cancelButtonColor: "#6b7280",
       customClass: {
         popup: "rounded-lg",
         title: "text-gray-800 font-medium",
       },
     }).then((result) => {
-      result.isConfirmed &&
-        (setPresupuesto(""),
-        setIsValid(false),
-        setModal(false),
-        setGastosState([]),
-        setGastoEditar({}),
-        setIngresosExtra([]),
-        setMetas([]),
-        localStorage.clear());
+      if (!result.isConfirmed && !result.isDenied) return;
+
+      setPresupuesto(0);
+      setIsValid(false);
+      setModal(false);
+      setGastosState([]);
+      setGastoEditar({});
+      setIngresosExtra([]);
+      setMetas([]);
+
+      const baseKeys = [
+        "PresupuestoLS",
+        "ValidLS",
+        "ObjetosGastos",
+        "IngresosExtra",
+        "MetasAhorro",
+        "categorias",
+        "recordatorios",
+      ];
+      baseKeys.forEach((key) => localStorage.removeItem(key));
+
+      if (result.isConfirmed) {
+        const inventoryKeys = [
+          "inventario",
+          "Inventario",
+          "productos",
+          "Productos",
+          "inventory",
+          "InventoryItems",
+          "movimientosInventario",
+          "MovimientosInventario",
+          "movimientos",
+          "Movimientos",
+          "categoriasInventario",
+          "CategoriasInventario",
+          "inventoryCategories",
+          "proveedores",
+          "Proveedores",
+          "suppliers",
+          "ventas",
+          "Ventas",
+          "ventasSimuladas",
+          "VentasSimuladas",
+          "historialVentas",
+          "HistorialVentas",
+          "facturas",
+          "Facturas",
+          "clientes",
+          "Clientes",
+          "cotizaciones",
+          "Cotizaciones",
+          "inventarioConfig",
+          "pedidoBorradorProveedor",
+        ];
+        inventoryKeys.forEach((key) => localStorage.removeItem(key));
+      }
     });
   };
 
@@ -148,7 +311,7 @@ function App() {
 
       // Notificación amigable
       Swal.fire({
-        title: "¡Gasto Actualizado!",
+        title: "Gasto actualizado",
         icon: "success",
         timer: 1500,
         showConfirmButton: false,
@@ -164,7 +327,7 @@ function App() {
 
       // Notificación amigable
       Swal.fire({
-        title: "¡Gasto Agregado!",
+        title: "Gasto agregado",
         icon: "success",
         timer: 1500,
         showConfirmButton: false,
@@ -196,8 +359,8 @@ function App() {
 
     // Notificación
     Swal.fire({
-      title: "¡Ingreso Registrado!",
-      text: `Se han añadido ${new Intl.NumberFormat("es-ES", {
+      title: "Ingreso registrado",
+      text: `Se han agregado ${new Intl.NumberFormat("es-ES", {
         style: "currency",
         currency: "COP",
       }).format(monto)} a tu presupuesto`,
@@ -221,7 +384,7 @@ function App() {
 
     // Notificación
     Swal.fire({
-      title: "¡Ingreso Actualizado!",
+      title: "Ingreso actualizado",
       icon: "success",
       timer: 1500,
       showConfirmButton: false,
@@ -278,10 +441,10 @@ function App() {
 
   const eliminar = (gastos) => {
     Swal.fire({
-      title: "¿Eliminar gasto?",
-      text: "Esta acción no se puede revertir",
+      title: "Eliminar gasto?",
+      text: "Esta accion no se puede revertir",
       icon: "warning",
-      confirmButtonText: "Sí, eliminar",
+      confirmButtonText: "Si, eliminar",
       cancelButtonText: "Cancelar",
       showCancelButton: true,
       confirmButtonColor: "#ef4444",
@@ -380,14 +543,113 @@ function App() {
     }
   }, [filtros, gastosState]);
 
+  if (!sesionActiva) {
+    return (
+      <div className="min-h-screen bg-app-gradient flex items-center justify-center p-4">
+        <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-lg">
+          <div className="mb-5">
+            <h1 className="text-2xl font-semibold text-slate-900">
+              Sistema administrativo
+            </h1>
+            <p className="mt-1 text-sm text-slate-500">
+              Inicia sesion o registrate para entrar al prototipo.
+            </p>
+          </div>
+
+          <div className="mb-5 flex rounded-lg bg-slate-100 p-1">
+            <button
+              onClick={() => setAuthMode("login")}
+              className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition ${
+                authMode === "login"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              Iniciar sesion
+            </button>
+            <button
+              onClick={() => setAuthMode("register")}
+              className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition ${
+                authMode === "register"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              Registrarse
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            {authMode === "register" && (
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">
+                  Nombre completo
+                </label>
+                <input
+                  type="text"
+                  value={authData.nombre}
+                  onChange={(e) => handleAuthChange("nombre", e.target.value)}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  placeholder="Tu nombre"
+                />
+              </div>
+            )}
+
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                Correo electronico
+              </label>
+              <input
+                type="email"
+                value={authData.email}
+                onChange={(e) => handleAuthChange("email", e.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                placeholder="correo@empresa.com"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                Contrasena
+              </label>
+              <input
+                type="password"
+                value={authData.password}
+                onChange={(e) => handleAuthChange("password", e.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                placeholder="********"
+              />
+            </div>
+
+            <button
+              onClick={authMode === "register" ? handleRegister : handleLogin}
+              className="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700"
+            >
+              {authMode === "register" ? "Crear cuenta" : "Entrar al sistema"}
+            </button>
+            <button
+              onClick={handleGuestAccess}
+              className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+            >
+              Entrar sin cuenta
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="h-screen overflow-y-auto bg-gray-50 flex flex-col font-sans">
+    <div className="h-screen overflow-y-auto bg-app-gradient flex flex-col font-sans text-slate-800">
       {/* Barra superior */}
       <Header
         setIsSidebarOpen={setIsSidebarOpen}
         isSidebarOpen={isSidebarOpen}
         metas={metas}
         disponibleMensual={disponibleMensual}
+        activeTab={activeTab}
+        onLogout={() => setSesionActiva(null)}
+        onNavigate={setActiveTab}
       />
 
       {isValid ? (
@@ -490,6 +752,23 @@ function App() {
                   setGastosState={setGastosState}
                 />
               )}
+              {[
+                "inventarioDashboard",
+                "inventarioProductos",
+                "inventarioStock",
+                "inventarioMovimientos",
+                "inventarioCategorias",
+                "inventarioProveedores",
+                "inventarioReportes",
+                "inventarioConfig",
+                "facturas",
+                "clientes",
+                "cotizaciones",
+                "reportesVentas",
+                "configDian",
+              ].includes(activeTab) && (
+                <PrototipoAdministrativo vista={activeTab} />
+              )}
             </div>
           </main>
         </div>
@@ -528,14 +807,16 @@ function App() {
 
               <button
                 onClick={() => {
-                  if (presupuesto > 0) {
+                  const valorInicial = Number(presupuesto);
+                  if (Number.isFinite(valorInicial) && valorInicial >= 0) {
+                    setPresupuesto(valorInicial);
                     setIsValid(true);
                     setActiveTab("dashboard");
                   }
                 }}
-                disabled={presupuesto <= 0}
+                disabled={!Number.isFinite(Number(presupuesto)) || Number(presupuesto) < 0}
                 className={`mt-4 px-4 py-2 rounded-md text-white font-medium text-sm sm:text-base ${
-                  presupuesto > 0
+                  Number.isFinite(Number(presupuesto)) && Number(presupuesto) >= 0
                     ? "bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                     : "bg-gray-400 cursor-not-allowed"
                 }`}
@@ -576,3 +857,7 @@ function App() {
 }
 
 export default App;
+
+
+
+
