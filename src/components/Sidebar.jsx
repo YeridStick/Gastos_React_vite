@@ -20,7 +20,6 @@ const navSections = [
     title: "Gestion de inventario",
     badge: "Foco",
     items: [
-      { id: "inventarioDashboard", label: "Dashboard inventario", icon: "chart" },
       { id: "inventarioProductos", label: "Productos", icon: "box" },
       { id: "inventarioStock", label: "Stock", icon: "layers" },
       { id: "inventarioMovimientos", label: "Movimientos", icon: "swap" },
