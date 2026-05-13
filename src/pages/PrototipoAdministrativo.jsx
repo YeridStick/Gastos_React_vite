@@ -4,9 +4,11 @@ const INVENTORY_KEYS = ["inventario", "Inventario", "productos", "Productos", "i
 const MOVEMENTS_KEYS = ["movimientosInventario", "MovimientosInventario", "movimientos", "Movimientos"];
 const CATEGORY_KEYS = ["categoriasInventario", "CategoriasInventario", "inventoryCategories"];
 const SUPPLIERS_KEYS = ["proveedores", "Proveedores", "suppliers"];
+const CLIENT_KEYS = ["clientes", "Clientes"];
 const BILLING_KEYS = ["facturas", "Facturas", "clientes", "Clientes", "cotizaciones", "Cotizaciones"];
 const SALES_KEYS = ["ventas", "Ventas", "ventasSimuladas", "VentasSimuladas", "historialVentas", "HistorialVentas", "facturas", "Facturas"];
 const INVENTORY_CONFIG_KEY = "inventarioConfig";
+const CLIENT_DRAFT_FROM_SALES_KEY = "clienteDraftDesdeVentas";
 
 const META = {
   inventarioDashboard: ["Dashboard inventario", "Resumen financiero y operativo del inventario.", "Gestion de inventario"],
@@ -44,7 +46,7 @@ const PRODUCT_FORM = {
   proveedorId: "",
 };
 const MOVE_FORM = { productId: "", tipo: "entrada", cantidad: 1, detalle: "" };
-const SALE_FORM = { productId: "", cantidad: 1, descuentoPct: 0, cliente: "" };
+const SALE_FORM = { productId: "", cantidad: 1, descuentoPct: 0, cliente: "", clienteId: "" };
 const SUPPLIER_FORM = {
   nombre: "",
   nit: "",
@@ -60,6 +62,15 @@ const SUPPLIER_FORM = {
   vigenciaInicio: "",
   vigenciaFin: "",
   condiciones: "",
+};
+const CLIENT_FORM = {
+  nombre: "",
+  nit: "",
+  email: "",
+  telefono: "",
+  tipoCliente: "empresa",
+  descuentoBasePct: 0,
+  notas: "",
 };
 
 const toNum = (value) => {
@@ -149,6 +160,8 @@ const normalizeSales = (rows) =>
       id: item.id ?? item.numero ?? `venta-${index}`,
       documento: item.numeroFactura ?? item.numero ?? item.id ?? `V-${index + 1}`,
       cliente: item.cliente ?? item.nombreCliente ?? item.customer ?? "Cliente general",
+      clienteId: item.clienteId ?? "",
+      clienteNit: item.clienteNit ?? "",
       fecha: item.fecha ?? item.date ?? item.createdAt ?? Date.now(),
       estado: (item.estado ?? item.status ?? "registrada").toString().toLowerCase(),
       productId: item.productId ?? "",
@@ -181,6 +194,20 @@ const normalizeSuppliers = (rows) =>
     vigenciaFin: row.vigenciaFin ?? "",
     condiciones: row.condiciones ?? "",
     activo: row.activo ?? true,
+  }));
+
+const normalizeClients = (rows) =>
+  rows.map((row, index) => ({
+    id: row.id ?? `cli-${index}`,
+    nombre: row.nombre ?? row.razonSocial ?? "Cliente sin nombre",
+    nit: String(row.nit ?? row.identificacion ?? row.documento ?? "").trim(),
+    email: row.email ?? "",
+    telefono: row.telefono ?? "",
+    tipoCliente: row.tipoCliente ?? "empresa",
+    descuentoBasePct: toNum(row.descuentoBasePct ?? row.descuento ?? 0),
+    notas: row.notas ?? "",
+    createdAt: row.createdAt ?? Date.now(),
+    updatedAt: row.updatedAt ?? Date.now(),
   }));
 
 const money = (value) => new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(toNum(value));
@@ -226,13 +253,14 @@ const looksLikeSale = (movement) => {
   return detail.includes("venta");
 };
 
-export default function PrototipoAdministrativo({ vista }) {
+export default function PrototipoAdministrativo({ vista, onNavigate }) {
   const [title, description, section] = META[vista] ?? ["Modulo administrativo", "Vista de apoyo para el prototipo.", "Administracion"];
 
   const productsKey = useMemo(() => findStorageKey(INVENTORY_KEYS, "inventario"), []);
   const movementsKey = useMemo(() => findStorageKey(MOVEMENTS_KEYS, "movimientosInventario"), []);
   const categoriesKey = useMemo(() => findStorageKey(CATEGORY_KEYS, "categoriasInventario"), []);
   const suppliersKey = useMemo(() => findStorageKey(SUPPLIERS_KEYS, "proveedores"), []);
+  const clientsKey = useMemo(() => findStorageKey(CLIENT_KEYS, "clientes"), []);
   const salesKey = useMemo(() => findStorageKey(SALES_KEYS, "ventas"), []);
 
   const [settings, setSettings] = useState(readSettings());
@@ -240,6 +268,7 @@ export default function PrototipoAdministrativo({ vista }) {
   const [moves, setMoves] = useState(() => normalizeMoves(parseStorageArray(MOVEMENTS_KEYS)));
   const [sales, setSales] = useState(() => normalizeSales(parseStorageArrays(SALES_KEYS)));
   const [suppliers, setSuppliers] = useState(() => normalizeSuppliers(parseStorageArray(SUPPLIERS_KEYS)));
+  const [clients, setClients] = useState(() => normalizeClients(parseStorageArray(CLIENT_KEYS)));
   const [billingRows, setBillingRows] = useState(() => parseStorageArray(BILLING_KEYS));
   const [categories, setCategories] = useState(() => {
     const custom = parseStorageArray(CATEGORY_KEYS).map((item) => (typeof item === "string" ? item : item?.nombre)).filter(Boolean);
@@ -251,6 +280,9 @@ export default function PrototipoAdministrativo({ vista }) {
   const [editingProductId, setEditingProductId] = useState("");
   const [moveForm, setMoveForm] = useState(MOVE_FORM);
   const [saleForm, setSaleForm] = useState(SALE_FORM);
+  const [clientSearch, setClientSearch] = useState("");
+  const [clientForm, setClientForm] = useState(CLIENT_FORM);
+  const [editingClientId, setEditingClientId] = useState("");
   const [supplierForm, setSupplierForm] = useState(SUPPLIER_FORM);
   const [editingSupplierId, setEditingSupplierId] = useState("");
   const [newCategory, setNewCategory] = useState("");
@@ -268,6 +300,7 @@ export default function PrototipoAdministrativo({ vista }) {
     setMoves(normalizeMoves(parseStorageArray(MOVEMENTS_KEYS)));
     setSales(normalizeSales(parseStorageArrays(SALES_KEYS)));
     setSuppliers(normalizeSuppliers(parseStorageArray(SUPPLIERS_KEYS)));
+    setClients(normalizeClients(parseStorageArray(CLIENT_KEYS)));
     setBillingRows(parseStorageArray(BILLING_KEYS));
   }, [vista]);
 
@@ -275,12 +308,46 @@ export default function PrototipoAdministrativo({ vista }) {
   useEffect(() => localStorage.setItem(movementsKey, JSON.stringify(moves)), [moves, movementsKey]);
   useEffect(() => localStorage.setItem(categoriesKey, JSON.stringify(categories)), [categories, categoriesKey]);
   useEffect(() => localStorage.setItem(suppliersKey, JSON.stringify(suppliers)), [suppliers, suppliersKey]);
+  useEffect(() => localStorage.setItem(clientsKey, JSON.stringify(clients)), [clients, clientsKey]);
   useEffect(() => localStorage.setItem(salesKey, JSON.stringify(sales)), [sales, salesKey]);
   useEffect(() => localStorage.setItem(INVENTORY_CONFIG_KEY, JSON.stringify(settings)), [settings]);
   useEffect(() => localStorage.setItem("pedidoBorradorProveedor", JSON.stringify(purchaseDraft)), [purchaseDraft]);
 
+  useEffect(() => {
+    if (vista !== "clientes") return;
+    const raw = localStorage.getItem(CLIENT_DRAFT_FROM_SALES_KEY);
+    if (!raw) return;
+    try {
+      const draft = JSON.parse(raw);
+      setEditingClientId("");
+      setClientForm((prev) => ({
+        ...prev,
+        nit: prev.nit || String(draft?.nit ?? "").trim(),
+        nombre: prev.nombre || String(draft?.nombre ?? "").trim(),
+      }));
+    } catch (error) {
+      console.error("Error al leer borrador de cliente desde ventas:", error);
+    } finally {
+      localStorage.removeItem(CLIENT_DRAFT_FROM_SALES_KEY);
+    }
+  }, [vista]);
+
   const isInventoryView = vista?.startsWith("inventario");
-  const isBillingView = vista?.startsWith("fact") || ["clientes", "cotizaciones", "configDian"].includes(vista);
+  const isBillingView = vista?.startsWith("fact") || ["cotizaciones", "configDian"].includes(vista);
+
+  const normalizedClientSearch = clientSearch.trim().toLowerCase();
+  const matchedClients = useMemo(() => {
+    if (!normalizedClientSearch) return [];
+    return clients
+      .filter((client) => {
+        const byNit = String(client.nit || "").toLowerCase().includes(normalizedClientSearch);
+        const byName = String(client.nombre || "").toLowerCase().includes(normalizedClientSearch);
+        const byEmail = String(client.email || "").toLowerCase().includes(normalizedClientSearch);
+        const byPhone = String(client.telefono || "").toLowerCase().includes(normalizedClientSearch);
+        return byNit || byName || byEmail || byPhone;
+      })
+      .slice(0, 6);
+  }, [clients, normalizedClientSearch]);
 
   const lowStockLimit = (product) => Math.max(product.minimo, Math.ceil(product.minimo * toNum(settings.lowStockMultiplier)));
   const restockTarget = (product) =>
@@ -361,6 +428,14 @@ export default function PrototipoAdministrativo({ vista }) {
   const totalProfit = totalSales - totalSalesCost;
   const soldUnits = saleRows.reduce((acc, s) => acc + toNum(s.cantidad), 0);
   const salesCount = saleRows.length;
+  const frequentClientsCount = clients.filter((client) => {
+    const count = sales.filter((sale) => {
+      const saleClientId = sale.clienteId ?? "";
+      const saleNit = String(sale.clienteNit ?? "").trim();
+      return saleClientId === client.id || saleNit === client.nit;
+    }).length;
+    return count >= 3;
+  }).length;
 
   const dailyRows = useMemo(() => moves.filter((m) => dateKey(m.fecha) === selectedDailyDate), [moves, selectedDailyDate]);
   const dailyInvestment = dailyRows.filter((m) => !looksLikeSale(m)).reduce((acc, m) => acc + toNum(m.montoCompra), 0);
@@ -518,6 +593,8 @@ export default function PrototipoAdministrativo({ vista }) {
         id: `sale-${Date.now()}`,
         documento: `VM-${Date.now().toString().slice(-6)}`,
         cliente: "Venta manual",
+        clienteId: "",
+        clienteNit: "",
         fecha: Date.now(),
         estado: "completada",
         productId: row.id,
@@ -608,6 +685,96 @@ export default function PrototipoAdministrativo({ vista }) {
     setProducts((prev) => prev.map((p) => (p.proveedorId === id ? { ...p, proveedorId: "" } : p)));
   };
 
+  const resetClientForm = () => {
+    setClientForm(CLIENT_FORM);
+    setEditingClientId("");
+  };
+
+  const saveClient = () => {
+    const nombre = clientForm.nombre.trim();
+    const nit = clientForm.nit.trim();
+    if (!nombre || !nit) return;
+
+    const duplicateNit = clients.some(
+      (client) => client.nit.toLowerCase() === nit.toLowerCase() && client.id !== editingClientId
+    );
+    if (duplicateNit) return;
+
+    const payload = {
+      id: editingClientId || `cli-${Date.now()}`,
+      nombre,
+      nit,
+      email: clientForm.email.trim(),
+      telefono: clientForm.telefono.trim(),
+      tipoCliente: clientForm.tipoCliente,
+      descuentoBasePct: Math.max(0, Math.min(90, toNum(clientForm.descuentoBasePct))),
+      notas: clientForm.notas.trim(),
+      createdAt: editingClientId
+        ? clients.find((client) => client.id === editingClientId)?.createdAt ?? Date.now()
+        : Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    if (editingClientId) {
+      setClients((prev) => prev.map((client) => (client.id === editingClientId ? payload : client)));
+      setSales((prev) =>
+        prev.map((sale) =>
+          sale.clienteId === editingClientId
+            ? { ...sale, cliente: payload.nombre, clienteNit: payload.nit }
+            : sale
+        )
+      );
+    } else {
+      setClients((prev) => [payload, ...prev]);
+    }
+
+    resetClientForm();
+  };
+
+  const editClient = (client) => {
+    setEditingClientId(client.id);
+    setClientForm({
+      nombre: client.nombre,
+      nit: client.nit,
+      email: client.email,
+      telefono: client.telefono,
+      tipoCliente: client.tipoCliente ?? "empresa",
+      descuentoBasePct: toNum(client.descuentoBasePct),
+      notas: client.notas ?? "",
+    });
+  };
+
+  const deleteClient = (id) => {
+    setClients((prev) => prev.filter((client) => client.id !== id));
+    if (saleForm.clienteId === id) {
+      setSaleForm((prev) => ({ ...prev, clienteId: "", cliente: "" }));
+      setClientSearch("");
+    }
+    if (editingClientId === id) resetClientForm();
+  };
+
+  const selectClientForSale = (client) => {
+    if (!client) return;
+    setSaleForm((prev) => ({
+      ...prev,
+      clienteId: client.id,
+      cliente: client.nombre,
+    }));
+    setClientSearch(client.nit || client.nombre || "");
+  };
+
+  const goToClientsWithDraft = () => {
+    const nitOrCc = clientSearch.trim();
+    if (nitOrCc) {
+      const draft = {
+        nit: nitOrCc,
+        nombre: saleForm.cliente.trim(),
+      };
+      localStorage.setItem(CLIENT_DRAFT_FROM_SALES_KEY, JSON.stringify(draft));
+    }
+    onNavigate?.("clientes");
+  };
+
   const addToPurchaseDraft = (suggestion) => {
     if (!suggestion || suggestion.unitsNeeded <= 0 || !suggestion.bestOption) return;
     const exists = purchaseDraft.some(
@@ -683,6 +850,10 @@ export default function PrototipoAdministrativo({ vista }) {
   };
 
   const selectedSaleProduct = products.find((p) => p.id === saleForm.productId);
+  const exactClientByNit = clients.find(
+    (client) => normalizedClientSearch && String(client.nit || "").toLowerCase() === normalizedClientSearch
+  );
+  const selectedClient = clients.find((client) => client.id === saleForm.clienteId) || exactClientByNit;
   const suggestedSalePrice = Math.round(
     Math.max(0, toNum(productForm.costoUnitario)) *
       (1 + Math.max(0, toNum(settings.defaultMarkupPercent)) / 100)
@@ -712,12 +883,45 @@ export default function PrototipoAdministrativo({ vista }) {
     return messages;
   };
 
-  const saleSuggestions = buildDiscountSuggestion(selectedSaleProduct);
+  const frequentClientSalesCount = selectedClient
+    ? sales.filter((sale) => {
+        const saleClientId = sale.clienteId ?? "";
+        const saleNit = String(sale.clienteNit ?? "").trim();
+        return saleClientId === selectedClient.id || saleNit === selectedClient.nit;
+      }).length
+    : 0;
+  const autoFrequentDiscountPct = selectedClient && frequentClientSalesCount >= 3 ? 5 : 0;
+  const finalSuggestedDiscountPct = Math.max(
+    0,
+    Math.min(
+      90,
+      Math.max(autoFrequentDiscountPct, toNum(selectedClient?.descuentoBasePct ?? 0))
+    )
+  );
+
+  useEffect(() => {
+    if (!exactClientByNit) return;
+    if (saleForm.clienteId === exactClientByNit.id) return;
+    setSaleForm((prev) => ({
+      ...prev,
+      clienteId: exactClientByNit.id,
+      cliente: exactClientByNit.nombre,
+    }));
+  }, [exactClientByNit, saleForm.clienteId]);
+
+  const saleSuggestions = [...buildDiscountSuggestion(selectedSaleProduct)];
+  if (selectedClient && finalSuggestedDiscountPct > 0) {
+    saleSuggestions.push(
+      `Cliente frecuente (${frequentClientSalesCount} compras): aplica descuento sugerido de ${finalSuggestedDiscountPct}%.`
+    );
+  }
 
   const registerSale = () => {
     const product = products.find((p) => p.id === saleForm.productId);
+    const client = selectedClient ?? null;
     const qty = Math.max(1, toNum(saleForm.cantidad));
-    const discount = Math.min(90, Math.max(0, toNum(saleForm.descuentoPct)));
+    const manualDiscount = Math.min(90, Math.max(0, toNum(saleForm.descuentoPct)));
+    const discount = Math.max(manualDiscount, finalSuggestedDiscountPct);
     if (!product) return;
     if (qty > product.cantidad) return;
 
@@ -729,7 +933,9 @@ export default function PrototipoAdministrativo({ vista }) {
     const sale = {
       id: `sale-${Date.now()}`,
       documento: `V-${Date.now().toString().slice(-6)}`,
-      cliente: saleForm.cliente.trim() || "Cliente general",
+      cliente: client?.nombre || saleForm.cliente.trim() || "Cliente no especificado",
+      clienteId: client?.id || "",
+      clienteNit: client?.nit || "",
       fecha: Date.now(),
       estado: "completada",
       productId: product.id,
@@ -750,13 +956,14 @@ export default function PrototipoAdministrativo({ vista }) {
     pushMove({
       tipo: "venta",
       cantidad: qty,
-      detalle: `Venta de ${product.nombre}`,
+      detalle: `Venta de ${product.nombre}${client ? ` a ${client.nombre} (${client.nit})` : ""}`,
       productId: product.id,
       producto: product.nombre,
       montoCompra: cost,
       montoVenta: total,
     });
     setSaleForm(SALE_FORM);
+    setClientSearch("");
   };
 
   const saveSettings = () => {
@@ -1386,6 +1593,95 @@ export default function PrototipoAdministrativo({ vista }) {
         </div>
       )}
 
+      {vista === "clientes" && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <div className="panel-card"><p className="panel-kpi-label">Clientes registrados</p><p className="panel-kpi-value text-slate-900">{clients.length}</p></div>
+            <div className="panel-card"><p className="panel-kpi-label">Clientes frecuentes</p><p className="panel-kpi-value text-emerald-700">{frequentClientsCount}</p></div>
+            <div className="panel-card"><p className="panel-kpi-label">Ventas con cliente</p><p className="panel-kpi-value text-sky-700">{sales.filter((sale) => String(sale.clienteNit || "").trim() !== "").length}</p></div>
+            <div className="panel-card"><p className="panel-kpi-label">Pendiente de vincular</p><p className="panel-kpi-value text-amber-600">{sales.filter((sale) => String(sale.clienteNit || "").trim() === "").length}</p></div>
+          </div>
+
+          <div className="panel-card">
+            <h3 className="text-sm font-semibold text-slate-800">{editingClientId ? "Editar cliente" : "Agregar cliente"}</h3>
+            <p className="mt-1 text-xs text-slate-500">El NIT/identificacion se usa para vincular ventas y habilitar beneficios para clientes frecuentes.</p>
+            <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-slate-600">Nombre o razon social</span>
+                <input className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="Ej: Empresa ABC SAS" value={clientForm.nombre} onChange={(e) => setClientForm((prev) => ({ ...prev, nombre: e.target.value }))} />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-slate-600">NIT / identificacion</span>
+                <input className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="Ej: 900123456-7" value={clientForm.nit} onChange={(e) => setClientForm((prev) => ({ ...prev, nit: e.target.value }))} />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-slate-600">Correo</span>
+                <input className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="correo@empresa.com" value={clientForm.email} onChange={(e) => setClientForm((prev) => ({ ...prev, email: e.target.value }))} />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-slate-600">Telefono</span>
+                <input className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="3001234567" value={clientForm.telefono} onChange={(e) => setClientForm((prev) => ({ ...prev, telefono: e.target.value }))} />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-slate-600">Tipo de cliente</span>
+                <select className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={clientForm.tipoCliente} onChange={(e) => setClientForm((prev) => ({ ...prev, tipoCliente: e.target.value }))}>
+                  <option value="empresa">Empresa</option>
+                  <option value="persona">Persona natural</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-slate-600">Descuento base (%)</span>
+                <input className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" type="number" min="0" max="90" placeholder="0" value={clientForm.descuentoBasePct} onChange={(e) => setClientForm((prev) => ({ ...prev, descuentoBasePct: toNum(e.target.value) }))} />
+              </label>
+              <label className="block md:col-span-2">
+                <span className="mb-1 block text-xs font-medium text-slate-600">Notas</span>
+                <input className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="Condiciones comerciales o acuerdo" value={clientForm.notas} onChange={(e) => setClientForm((prev) => ({ ...prev, notas: e.target.value }))} />
+              </label>
+            </div>
+            <p className="mt-2 text-xs text-slate-500">DAO local cliente: {"{ id, nombre, nit, email, telefono, tipoCliente, descuentoBasePct, notas, createdAt }"}</p>
+            <div className="mt-3 flex gap-2">
+              <button className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700" onClick={saveClient}>{editingClientId ? "Guardar cambios" : "Agregar cliente"}</button>
+              {editingClientId && <button className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100" onClick={resetClientForm}>Cancelar</button>}
+            </div>
+          </div>
+
+          {clients.length === 0 ? (
+            <Empty message="No hay clientes registrados aun." />
+          ) : (
+            <div className="panel-card overflow-hidden p-0">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-200">
+                  <thead className="bg-slate-50"><tr><th className="table-head">Cliente</th><th className="table-head">NIT/Identificacion</th><th className="table-head">Contacto</th><th className="table-head">Tipo</th><th className="table-head text-right">Ventas</th><th className="table-head text-right">Beneficio</th><th className="table-head text-right">Acciones</th></tr></thead>
+                  <tbody className="divide-y divide-slate-100 bg-white text-sm">
+                    {clients.map((client) => {
+                      const count = sales.filter((sale) => (sale.clienteId ?? "") === client.id || String(sale.clienteNit ?? "").trim() === client.nit).length;
+                      const autoDiscount = count >= 3 ? 5 : 0;
+                      const appliedBenefit = Math.max(autoDiscount, toNum(client.descuentoBasePct));
+                      return (
+                        <tr key={client.id} className="hover:bg-slate-50">
+                          <td className="table-cell font-medium text-slate-800">{client.nombre}</td>
+                          <td className="table-cell">{client.nit}</td>
+                          <td className="table-cell">{client.email || client.telefono || "-"}</td>
+                          <td className="table-cell">{client.tipoCliente === "persona" ? "Persona" : "Empresa"}</td>
+                          <td className="table-cell text-right">{count}</td>
+                          <td className="table-cell text-right">{appliedBenefit}%</td>
+                          <td className="table-cell">
+                            <div className="flex justify-end gap-2">
+                              <button className="rounded-md border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100" onClick={() => editClient(client)}>Editar</button>
+                              <button className="rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-xs text-rose-700 hover:bg-rose-100" onClick={() => deleteClient(client.id)}>Eliminar</button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {vista === "reportesVentas" && (
         <div className="space-y-4">
           <div className="panel-card">
@@ -1407,10 +1703,62 @@ export default function PrototipoAdministrativo({ vista }) {
                 <input className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="0" type="number" min="0" max="90" value={saleForm.descuentoPct} onChange={(e) => setSaleForm((p) => ({ ...p, descuentoPct: toNum(e.target.value) }))} />
               </label>
               <label className="block">
-                <span className="mb-1 block text-xs font-medium text-slate-600">Cliente</span>
-                <input className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="Nombre del cliente" value={saleForm.cliente} onChange={(e) => setSaleForm((p) => ({ ...p, cliente: e.target.value }))} />
+                <span className="mb-1 block text-xs font-medium text-slate-600">Cliente por NIT/identificacion</span>
+                <input
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  placeholder="Escribe NIT, CC o nombre (opcional)"
+                  value={clientSearch}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setClientSearch(next);
+                    setSaleForm((prev) => ({
+                      ...prev,
+                      clienteId: "",
+                      cliente: next.trim(),
+                    }));
+                  }}
+                />
               </label>
             </div>
+            {matchedClients.length > 0 && (
+              <div className="mt-2 rounded-lg border border-slate-200 bg-white">
+                {matchedClients.map((client) => (
+                  <button
+                    key={client.id}
+                    className="flex w-full items-center justify-between border-b border-slate-100 px-3 py-2 text-left text-xs text-slate-700 last:border-b-0 hover:bg-slate-50"
+                    onClick={() => selectClientForSale(client)}
+                  >
+                    <span>{client.nombre}</span>
+                    <span className="text-slate-500">{client.nit}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {selectedClient ? (
+              <p className="mt-2 text-xs text-slate-500">
+                Cliente seleccionado: {selectedClient.nombre} | NIT: {selectedClient.nit} | Compras previas: {frequentClientSalesCount}
+              </p>
+            ) : (
+              <p className="mt-2 text-xs text-slate-500">
+                Si no seleccionas cliente, la venta se registrara como "Cliente no especificado".
+              </p>
+            )}
+            {finalSuggestedDiscountPct > 0 && (
+              <p className="mt-1 text-xs text-emerald-700">
+                Descuento sugerido automatico por cliente: {finalSuggestedDiscountPct}% (se aplica si es mayor al manual).
+              </p>
+            )}
+            {!selectedClient && normalizedClientSearch && matchedClients.length === 0 && (
+              <div className="mt-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-800">
+                <p>No existe un cliente con ese NIT/CC. Puedes crearlo rapidamente.</p>
+                <button
+                  className="mt-2 rounded-md border border-sky-300 bg-white px-2 py-1 font-medium text-sky-700 hover:bg-sky-100"
+                  onClick={goToClientsWithDraft}
+                >
+                  Ir a Clientes y crearlo
+                </button>
+              </div>
+            )}
             {saleSuggestions.length > 0 && (
               <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
                 {saleSuggestions.map((s) => <p key={s}>{s}</p>)}
@@ -1432,7 +1780,7 @@ export default function PrototipoAdministrativo({ vista }) {
             <div className="panel-card overflow-hidden p-0">
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-slate-200">
-                  <thead className="bg-slate-50"><tr><th className="table-head">Documento</th><th className="table-head">Producto</th><th className="table-head">Cliente</th><th className="table-head text-right">Cant.</th><th className="table-head text-right">Total</th><th className="table-head text-right">Ganancia</th><th className="table-head">Estado</th></tr></thead>
+                  <thead className="bg-slate-50"><tr><th className="table-head">Documento</th><th className="table-head">Producto</th><th className="table-head">Cliente</th><th className="table-head">NIT - Identificacion</th><th className="table-head text-right">Cant.</th><th className="table-head text-right">Total</th><th className="table-head text-right">Ganancia</th><th className="table-head">Estado</th></tr></thead>
                   <tbody className="divide-y divide-slate-100 bg-white text-sm">
                     {sales.slice().sort((a, b) => new Date(b.fecha) - new Date(a.fecha)).slice(0, 20).map((s) => {
                       const [text, kind] = s.estado === "completada" ? ["Completada", "success"] : ["Registrada", "info"];
@@ -1441,6 +1789,7 @@ export default function PrototipoAdministrativo({ vista }) {
                           <td className="table-cell font-medium text-slate-800">{s.documento}</td>
                           <td className="table-cell">{s.producto || "-"}</td>
                           <td className="table-cell">{s.cliente}</td>
+                          <td className="table-cell">{s.clienteNit || "-"}</td>
                           <td className="table-cell text-right">{s.cantidad}</td>
                           <td className="table-cell text-right">{money(s.total)}</td>
                           <td className="table-cell text-right">{money(s.ganancia)}</td>

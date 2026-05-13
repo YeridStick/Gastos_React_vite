@@ -767,7 +767,7 @@ function App() {
                 "reportesVentas",
                 "configDian",
               ].includes(activeTab) && (
-                <PrototipoAdministrativo vista={activeTab} />
+                <PrototipoAdministrativo vista={activeTab} onNavigate={setActiveTab} />
               )}
             </div>
           </main>
